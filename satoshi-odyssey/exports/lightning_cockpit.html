@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LN Lightning Cockpit HUD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#07070f;--panel:#0d0d1e;--cyan:#00dcff;--green:#00ff88;
+    --gold:#ffd700;--red:#ff4466;--amber:#ffcc00;--violet:#7b2fff;
+    --text:#e0e0f0;--sub:#8888aa;--border:rgba(0,220,255,0.35);
+  }
+  html,body{width:100%;height:100%;background:var(--bg);color:var(--text);overflow:hidden;
+    font-family:'Share Tech Mono',monospace;}
+
+  /* ── SCANLINE OVERLAY ── */
+  body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9990;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);}
+
+  /* ── GRID LAYOUT ── */
+  #cockpit{display:grid;width:100vw;height:100vh;
+    grid-template-areas:"top top top" "left center right" "bottom bottom bottom";
+    grid-template-columns:230px 1fr 230px;
+    grid-template-rows:58px 1fr 138px;}
+
+  /* ── SHARED PANEL STYLE ── */
+  .hud-panel{background:rgba(13,13,30,.92);border-color:var(--border);
+    backdrop-filter:blur(6px);}
+
+  /* ── TOP BAR ── */
+  #hud-top{grid-area:top;border-bottom:1px solid var(--border);
+    box-shadow:0 0 18px rgba(0,220,255,.25);display:flex;align-items:center;
+    padding:0 16px;gap:10px;z-index:100;}
+  #hud-top .logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:17px;
+    color:var(--cyan);letter-spacing:2px;white-space:nowrap;margin-right:8px;
+    text-shadow:0 0 12px var(--cyan);}
+  .top-seg{display:flex;flex-direction:column;align-items:center;
+    padding:0 10px;border-left:1px solid rgba(0,220,255,.2);min-width:90px;}
+  .top-seg .lbl{font-size:12px;color:var(--sub);letter-spacing:1px;text-transform:uppercase;}
+  .top-seg .val{font-size:17px;color:var(--cyan);font-weight:bold;white-space:nowrap;}
+  #sync-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px;
+    box-shadow:0 0 8px currentColor;}
+  .synced{color:var(--green)}.unsynced{color:var(--red)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .pulse{animation:pulse 1.5s ease-in-out infinite}
+
+  /* ── LEFT PANEL ── */
+  #hud-left{grid-area:left;border-right:1px solid var(--border);
+    box-shadow:0 0 20px rgba(0,220,255,.18) inset;padding:12px 10px;
+    display:flex;flex-direction:column;gap:10px;overflow:hidden;}
+
+  /* ── RIGHT PANEL ── */
+  #hud-right{grid-area:right;border-left:1px solid var(--border);
+    box-shadow:0 0 20px rgba(0,220,255,.18) inset;padding:12px 10px;
+    display:flex;flex-direction:column;gap:10px;overflow:hidden;}
+
+  /* ── CENTER ── */
+  #hud-center{grid-area:center;position:relative;overflow:hidden;}
+  #hud-center iframe{width:100%;height:100%;border:none;display:block;}
+
+  /* ── BOTTOM BAR ── */
+  #hud-bottom{grid-area:bottom;border-top:1px solid var(--border);
+    box-shadow:0 0 18px rgba(0,220,255,.2);display:flex;align-items:stretch;
+    padding:8px 12px;gap:12px;overflow:hidden;}
+
+  /* ── INSTRUMENT CARD ── */
+  .card{background:rgba(5,5,18,.7);border:1px solid rgba(0,220,255,.22);
+    border-radius:6px;padding:8px 10px;}
+  .card-title{font-size:12px;color:var(--sub);letter-spacing:1.5px;
+    text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+  .card-val{font-size:26px;font-family:'Orbitron',sans-serif;color:var(--cyan);
+    line-height:1.1;text-shadow:0 0 10px rgba(0,220,255,.5);}
+  .card-val.green{color:var(--green);text-shadow:0 0 10px rgba(0,255,136,.5)}
+  .card-val.amber{color:var(--amber);text-shadow:0 0 10px rgba(255,204,0,.5)}
+  .card-val.red{color:var(--red);text-shadow:0 0 10px rgba(255,68,102,.5)}
+  .card-sub{font-size:12px;color:var(--sub);margin-top:2px;}
+
+  /* ── GAUGE SVG ── */
+  .gauge-wrap{display:flex;justify-content:center;align-items:center;padding:4px 0;}
+
+  /* ── BAR METER ── */
+  .bar-meter{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin-top:4px;}
+  .bar-fill{height:100%;border-radius:4px;transition:width .8s ease;}
+
+  /* ── SPARKLINE ── */
+  .spark-wrap{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .spark-title{font-size:12px;color:var(--sub);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+  .spark-wrap svg{width:100%;height:60px;}
+
+  /* ── BOTTOM SEGMENTS ── */
+  .bot-seg{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;
+    border-right:1px solid rgba(0,220,255,.12);padding-right:10px;}
+  .bot-seg:last-child{border-right:none;padding-right:0;}
+  .bot-label{font-size:12px;color:var(--sub);letter-spacing:1px;text-transform:uppercase;}
+  .bot-val{font-family:'Orbitron',sans-serif;font-size:22px;color:var(--cyan);}
+  .bot-val.pos{color:var(--green)}.bot-val.neg{color:var(--red)}
+
+  /* ── DIVIDER ── */
+  .hdiv{height:1px;background:rgba(0,220,255,.15);margin:2px 0;}
+
+
+  /* ── TOOLTIP (JS-driven, never clipped by overflow:hidden) ── */
+  .tip{cursor:help;}
+  #hud-floatip{
+    position:fixed;z-index:99999;display:none;
+    background:rgba(4,4,20,0.97);
+    border:1px solid rgba(0,220,255,0.55);
+    color:#d0d8f0;font-size:11.5px;line-height:1.6;
+    padding:10px 14px;border-radius:8px;
+    white-space:pre-line;max-width:260px;
+    box-shadow:0 0 18px rgba(0,220,255,0.35);
+    font-family:'Share Tech Mono',monospace;
+    pointer-events:none;
+  }
+
+  /* ── CORNER DECO ── */
+  .corner-tl,.corner-tr,.corner-bl,.corner-br{position:absolute;width:12px;height:12px;z-index:10;}
+  .corner-tl{top:0;left:0;border-top:2px solid var(--cyan);border-left:2px solid var(--cyan);}
+  .corner-tr{top:0;right:0;border-top:2px solid var(--cyan);border-right:2px solid var(--cyan);}
+  .corner-bl{bottom:0;left:0;border-bottom:2px solid var(--cyan);border-left:2px solid var(--cyan);}
+  .corner-br{bottom:0;right:0;border-bottom:2px solid var(--cyan);border-right:2px solid var(--cyan);}
+</style>
+</head>
+<body>
+<div id="cockpit">
+
+  <!-- TOP BAR -->
+  <div id="hud-top" class="hud-panel">
+    <div class="logo">⚡ LN·COCKPIT</div>
+    <div class="top-seg tip" data-tip="Alias del nodo anunciado al grafo Lightning.
+Debe coincidir con lnd.conf.">
+      <span class="lbl">Nodo</span>
+      <span class="val" id="t-alias">—</span>
+    </div>
+    <div class="top-seg tip" data-tip="🟢 OK = sincronizado y operativo.
+🔴 NO = offline o atrasado.
+Ningún pago se enruta si NO está sincronizado.">
+      <span class="lbl">Sync</span>
+      <span class="val" id="t-sync"><span id="sync-dot"></span><span id="sync-txt">—</span></span>
+    </div>
+    <div class="top-seg tip" data-tip="Altura de bloque que conoce el nodo.
+Debe estar al día con la red.
+&gt;6 bloques de atraso = problema de sync.">
+      <span class="lbl">Bloque</span>
+      <span class="val" id="t-block">—</span>
+    </div>
+    <div class="top-seg tip" data-tip="Peers P2P conectados actualmente.
+Óptimo: ≥3 peers activos.
+&lt;2 = riesgo de aislamiento de la red.">
+      <span class="lbl">Peers</span>
+      <span class="val" id="t-peers">—</span>
+    </div>
+    <div class="top-seg tip" data-tip="Saldo on-chain confirmado.
+Mantener reserva para abrir canales.
+Demasiado on-chain = capital sin trabajar.">
+      <span class="lbl">Wallet</span>
+      <span class="val" id="t-wallet">—</span>
+    </div>
+    <div class="top-seg tip" data-tip="% de tiempo online en las últimas 24h.
+100% = nodo siempre operativo.
+&lt;95% = reinicios o problemas de red frecuentes.">
+      <span class="lbl">Uptime 24h</span>
+      <span class="val" id="t-uptime">—</span>
+    </div>
+    <div style="flex:1"></div>
+    <div class="top-seg" style="border-left:none;">
+      <span class="lbl">Hora</span>
+      <span class="val" id="t-clock">—</span>
+    </div>
+  </div>
+
+  <!-- LEFT PANEL: Canales & Liquidez -->
+  <div id="hud-left" class="hud-panel">
+    <!-- Logo -->
+    <div style="text-align: center; margin-bottom: 5px;">
+      <img src="../images/ln-cockpit-Small.png" alt="LN Cockpit Logo" style="width: 130px; height: auto; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 220, 255, 0.15);">
+    </div>
+    
+    <!-- Canales activos/inactivos -->
+    <div class="card tip" data-tip="Ideal: ≥80% de canales activos.
+Inactivos = peer desconectado.
+Si persiste &gt;24h, considera cerrar el canal.">
+      <div class="card-title">📡 Canales</div>
+      <div class="card-val" id="l-ch-active">—</div>
+      <div class="card-sub">activos / <span id="l-ch-total">—</span> total</div>
+      <div class="bar-meter" style="margin-top:6px;">
+        <div class="bar-fill" id="l-ch-bar" style="background:var(--green);width:0%"></div>
+      </div>
+    </div>
+    <!-- Gauge liquidez -->
+    <div class="card tip" data-tip="Óptimo: 40–60%.
+&lt;20% = sin liquidez saliente (no puedes enviar).
+&gt;80% = sin liquidez entrante (no puedes recibir).
+Equilibrio = más enrutamiento posible.">
+      <div class="card-title">💧 Liquidez Local</div>
+      <div class="gauge-wrap">
+        <svg width="110" height="70" viewBox="0 0 110 70">
+          <path d="M5,60 A50,50 0 0,1 105,60" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="10" stroke-linecap="round"/>
+          <path id="gauge-arc" d="M5,60 A50,50 0 0,1 105,60" fill="none" stroke="var(--green)" stroke-width="10" stroke-linecap="round"
+            stroke-dasharray="157" stroke-dashoffset="157"/>
+          <text x="55" y="55" text-anchor="middle" fill="var(--cyan)" font-family="Orbitron,sans-serif" font-size="18" id="gauge-pct">—%</text>
+        </svg>
+      </div>
+      <div class="card-sub" style="text-align:center">Local / (Local+Remote)</div>
+    </div>
+    <!-- Capacidad total -->
+    <div class="card tip" data-tip="Sats totales bloqueados en canales.
+A mayor capacidad, más atractivo como hub.
+Mainnet: nodos relevantes &gt;10M sats.
+Capital en on-chain = capital sin trabajar.">
+      <div class="card-title">⚡ Capacidad Total</div>
+      <div class="card-val" style="font-size:21px;" id="l-capacity">—</div>
+      <div class="card-sub">sats en canales</div>
+    </div>
+    <!-- Zombies -->
+    <div class="card tip" id="card-zombies" data-tip="Ideal: 0.
+Canal activo sin actualizaciones en &gt;7 días.
+Capital inmovilizado e improductivo.
+Considera cerrar zombies persistentes.">
+      <div class="card-title">🧟 Zombies</div>
+      <div class="card-val" id="l-zombies">—</div>
+      <div class="card-sub" id="l-zombie-cap">— sats inactivos</div>
+    </div>
+  </div>
+
+  <!-- CENTER: iframe con la red 3D -->
+  <div id="hud-center">
+    <div class="corner-tl"></div><div class="corner-tr"></div>
+    <div class="corner-bl"></div><div class="corner-br"></div>
+    <iframe id="graph-frame" src="lightning_cockpit_graph.html" title="Red Lightning 3D"></iframe>
+  </div>
+
+  <!-- RIGHT PANEL: Routing & Rentabilidad -->
+  <div id="hud-right" class="hud-panel">
+    <!-- Fees ganadas acumulado -->
+    <div class="card tip" data-tip="Msat ganados enrutando pagos de terceros.
+Tendencia creciente = nodo utilizado como hub.
+Mainnet: buenos nodos ganan 100k+ msat/mes.
+Testnet4: cifras bajas son normales.">
+      <div class="card-title">📈 Fees Ganadas (cum.)</div>
+      <div class="card-val green" id="r-fees-earned">—</div>
+      <div class="card-sub">msat enrutamiento</div>
+    </div>
+    <!-- Fees pagadas (rebalanceo) -->
+    <div class="card tip" data-tip="Msat pagados en rebalanceos propios.
+Debe ser MENOR que las fees ganadas.
+Si supera lo ganado, estás subsidiando la red.
+Revisa frecuencia y costo de rebalanceos.">
+      <div class="card-title">📉 Fees Pagadas (cum.)</div>
+      <div class="card-val amber" id="r-fees-paid">—</div>
+      <div class="card-sub">msat rebalanceos</div>
+    </div>
+    <!-- Forwards -->
+    <div class="card tip" data-tip="Pagos totales enrutados por tu nodo.
+Vol: sats totales que pasaron por ti.
+Más forwards = mejor posición en la red.
+Forwards grandes = pagos relevantes enrutados.">
+      <div class="card-title">⚡ Forwards (cum.)</div>
+      <div class="card-val" id="r-fwd-count">—</div>
+      <div class="card-sub">Vol: <span id="r-fwd-vol">—</span> sats</div>
+    </div>
+    <!-- Ratio rebalanceo/enrutamiento -->
+    <div class="card tip" data-tip="fees_paid / fees_earned × 100.
+&lt;50% Excelente — nodo muy rentable.
+50–100% Aceptable — margen mejorable.
+&gt;100% Pérdida — rebalanceos demasiado caros.">
+      <div class="card-title">⚖️ Ratio Rebalan/Enrut.</div>
+      <div class="card-val" id="r-ratio">—</div>
+      <div class="card-sub">fees_paid / fees_earned</div>
+    </div>
+    <!-- Eficiencia de capital -->
+    <div class="card tip" data-tip="sats_enrutados / capacidad_total.
+Cuánto de tu capital está 'trabajando'.
+Mainnet: &gt;1% mensual es aceptable.
+Si es 0% en mainnet: revisar fees y conectividad.">
+      <div class="card-title">🎯 Efic. Capital</div>
+      <div class="card-val" id="r-efficiency">—</div>
+      <div class="card-sub">sats_enrutados / capacidad</div>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="hud-bottom" class="hud-panel">
+    <!-- Mini chart fees 7 días -->
+    <div class="spark-wrap tip" data-tip="Barras diarias: verde=ganadas, amarillo=pagadas.
+Barras verdes más altas = nodo rentable ese día.
+Días vacíos = sin actividad de enrutamiento.">
+      <div class="spark-title">📊 Fees Ganadas vs Pagadas — 7 días</div>
+      <svg id="spark-daily" viewBox="0 0 300 55" preserveAspectRatio="none">
+        <text x="150" y="30" fill="rgba(136,136,170,.5)" text-anchor="middle" font-size="10" font-family="monospace">Sin datos</text>
+      </svg>
+    </div>
+    <!-- Mini chart forwards 24h -->
+    <div class="spark-wrap tip" data-tip="Pagos enrutados por hora en las últimas 24h.
+Picos = alta actividad de enrutamiento.
+Plano en 0 = sin tráfico (normal en testnet4).
+Tendencia creciente = ganando relevancia en la red.">
+      <div class="spark-title">⚡ Forwards por hora — 24h</div>
+      <svg id="spark-hourly" viewBox="0 0 300 55" preserveAspectRatio="none">
+        <text x="150" y="30" fill="rgba(136,136,170,.5)" text-anchor="middle" font-size="10" font-family="monospace">Sin datos</text>
+      </svg>
+    </div>
+    <!-- Net profit 7 días -->
+    <div class="bot-seg tip" data-tip="fees_earned - fees_paid en 7 días.
++ Verde = nodo rentable.
+- Rojo = gastas más en rebalanceos de lo que ganas.
+Objetivo: siempre positivo.">
+      <div class="bot-label">💰 Net Profit 7d</div>
+      <div class="bot-val" style="font-size:26px;" id="b-net-profit">—</div>
+      <div class="card-sub" id="b-net-sub">fees_earned - fees_paid</div>
+    </div>
+    <!-- Snapshot ts -->
+    <div class="bot-seg tip" data-tip="Timestamp del último registro en node_history.db.
+Debe ser reciente (min = intervalo configurado).
+Muy desactualizado = colector no está corriendo.">
+      <div class="bot-label">🕒 Último Snapshot</div>
+      <div class="bot-val" style="font-size:16px;" id="b-snap-ts">—</div>
+      <div class="card-sub">Datos en tiempo real</div>
+    </div>
+  </div>
+
+</div><!-- #cockpit -->
+
+<script>
+(function(){
+  const S = {"snap": {"id": 4688, "ts": 1780171271, "block_height": 137065, "alias": "btcol-testnet4", "pubkey": "0391a0f5677df1cfab216c04ae2d1a56812c0b5e750647390f2330a18c9d11a756", "synced_to_chain": 1, "synced_to_graph": 1, "num_peers": 9, "channels_active": 7, "channels_inactive": 0, "channels_pending_open": 0, "channels_pending_close": 0, "channels_total": 7, "capacity_total": 13200000, "balance_local": 8234957, "balance_remote": 4955903, "wallet_confirmed": 6247300, "wallet_unconfirmed": 0, "liquidity_ratio": 62.43, "capital_concentration": 37.88, "fwd_count_cum": 4, "fwd_amt_cum_sat": 316002, "fwd_fees_cum_msat": 105116, "fwd_avg_size_sat": 79000, "payments_count_cum": 141, "payments_fees_cum_msat": 1954775, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0}, "hourly": [{"hour_ts": 1780149600, "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 1954775, "avg_liquidity_ratio": 62.43, "active_channels": 7, "zombie_channels": 0, "sample_count": 1}, {"hour_ts": 1780153200, "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 0, "avg_liquidity_ratio": 62.43, "active_channels": 7, "zombie_channels": 0, "sample_count": 1}, {"hour_ts": 1780171200, "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 0, "avg_liquidity_ratio": 62.43, "active_channels": 7, "zombie_channels": 0, "sample_count": 1}], "daily": [{"date": "2026-05-12", "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 0, "net_profit_msat": 0, "avg_liquidity_ratio": 75.18, "avg_active_channels": 7.0, "avg_capacity_sat": 8700000, "disconnections": 0, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0, "sample_count": 578}, {"date": "2026-05-13", "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 0, "net_profit_msat": 0, "avg_liquidity_ratio": 75.19, "avg_active_channels": 6.0, "avg_capacity_sat": 8700000, "disconnections": 0, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0, "sample_count": 576}, {"date": "2026-05-14", "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 0, "net_profit_msat": 0, "avg_liquidity_ratio": 75.19, "avg_active_channels": 5.97, "avg_capacity_sat": 8700000, "disconnections": 0, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0, "sample_count": 507}, {"date": "2026-05-15", "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 15006, "net_profit_msat": -15006, "avg_liquidity_ratio": 66.62, "avg_active_channels": 6.67, "avg_capacity_sat": 11933330, "disconnections": 0, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0, "sample_count": 15}, {"date": "2026-05-16", "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 0, "net_profit_msat": 0, "avg_liquidity_ratio": 62.39, "avg_active_channels": 7.0, "avg_capacity_sat": 13200000, "disconnections": 0, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0, "sample_count": 1}, {"date": "2026-05-27", "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 0, "net_profit_msat": 0, "avg_liquidity_ratio": 0.0, "avg_active_channels": 0.0, "avg_capacity_sat": 0, "disconnections": 2, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0, "sample_count": 2}, {"date": "2026-05-30", "fwd_count_delta": 0, "fwd_amt_delta_sat": 0, "fees_earned_msat": 0, "fees_paid_msat": 1954775, "net_profit_msat": -1954775, "avg_liquidity_ratio": 62.43, "avg_active_channels": 7.0, "avg_capacity_sat": 13200000, "disconnections": 0, "zombie_channels": 0, "inactive_capital_sat": 0, "capital_efficiency": 0.0, "sample_count": 3}], "net_profit_7d_msat": -1969781, "uptime_pct_7d": 100.0, "zombies_list": []};
+
+  // ── language detection (reads from parent page OR localStorage) ──
+  let currentIsEn = ((window.parent && window.parent.currentLang) || localStorage.getItem('lang') || 'es') === 'en';
+
+  // Translation dictionary (ES → EN)
+  const EN = {
+    "Nodo": "Node", "Sync": "Sync", "Bloque": "Block", "Peers": "Peers",
+    "Wallet": "Wallet", "Uptime 24h": "Uptime 24h", "Hora": "Time", "REFRESCO": "REFRESH",
+    "📡 Canales": "📡 Channels", "💧 Liquidez Local": "💧 Local Liquidity",
+    "Local / (Local+Remote)": "Local / (Local+Remote)",
+    "⚡ Capacidad Total": "⚡ Total Capacity", "sats en canales": "sats in channels",
+    "🧟 Zombies": "🧟 Zombies",
+    "📈 Fees Ganadas (cum.)": "📈 Fees Earned (cum.)", "msat enrutamiento": "routing msats",
+    "📉 Fees Pagadas (cum.)": "📉 Fees Paid (cum.)", "msat rebalanceos": "rebalancing msats",
+    "⚡ Forwards (cum.)": "⚡ Forwards (cum.)", "⚖️ Ratio Rebalan/Enrut.": "⚖️ Rebal/Fwd Ratio",
+    "fees_paid / fees_earned": "fees_paid / fees_earned",
+    "🎯 Efic. Capital": "🎯 Cap. Efficiency", "sats_enrutados / capacidad": "routed_sats / capacity",
+    "📊 Fees Ganadas vs Pagadas — 7 días": "📊 Fees Earned vs Paid — 7 days",
+    "⚡ Forwards por hora — 24h": "⚡ Forwards per hour — 24h",
+    "💰 Net Profit 7d": "💰 Net Profit 7d", "fees_earned - fees_paid": "fees_earned - fees_paid",
+    "🕒 Último Snapshot": "🕒 Last Snapshot", "Datos en tiempo real": "Real-time data",
+    "Ganadas": "Earned", "Pagadas": "Paid", "Sin datos": "No data",
+    "Alias del nodo anunciado al grafo Lightning.
+Debe coincidir con lnd.conf.": "Node alias announced to the Lightning graph.
+Must match lnd.conf.",
+    "🟢 OK = sincronizado y operativo.
+🔴 NO = offline o atrasado.
+Ningún pago se enruta si NO está sincronizado.": "🟢 OK = synchronized and active.
+🔴 NO = offline or lagging.
+No payments are routed if NOT synchronized.",
+    "Altura de bloque que conoce el nodo.
+Debe estar al día con la red.
+>6 bloques de atraso = problema de sync.": "Block height known by the node.
+Must be up to date with the network.
+>6 blocks lag = sync issue.",
+    "Peers P2P conectados actualmente.
+Óptimo: ≥3 peers activos.
+<2 = riesgo de aislamiento de la red.": "P2P peers currently connected.
+Optimal: ≥3 active peers.
+<2 = risk of network isolation.",
+    "Saldo on-chain confirmado.
+Mantener reserva para abrir canales.
+Demasiado on-chain = capital sin trabajar.": "Confirmed on-chain balance.
+Keep reserve to open channels.
+Too much on-chain = idle capital.",
+    "% de tiempo online en las últimas 24h.
+100% = nodo siempre operativo.
+<95% = reinicios o problemas de red frecuentes.": "% of online uptime in last 24h.
+100% = node always active.
+<95% = frequent restarts or network issues.",
+    "Ideal: ≥80% de canales activos.
+Inactivos = peer desconectado.
+Si persiste >24h, considera cerrar el canal.": "Ideal: ≥80% active channels.
+Inactive = disconnected peer.
+If it persists >24h, consider closing.",
+    "Óptimo: 40–60%.
+<20% = sin liquidez saliente (no puedes enviar).
+>80% = sin liquidez entrante (no puedes recibir).
+Equilibrio = más enrutamiento posible.": "Optimal: 40–60%.
+<20% = no outbound liquidity (cannot send).
+>80% = no inbound liquidity (cannot receive).
+Balance = maximum routing potential.",
+    "Sats totales bloqueados en canales.
+A mayor capacidad, más atractivo como hub.
+Mainnet: nodos relevantes >10M sats.
+Capital en on-chain = capital sin trabajar.": "Total sats locked in channels.
+Larger capacity makes it more attractive as a hub.
+Mainnet: relevant nodes >10M sats.
+On-chain capital = idle capital.",
+    "Ideal: 0.
+Canal activo sin actualizaciones en >7 días.
+Capital inmovilizado e improductivo.
+Considera cerrar zombies persistentes.": "Ideal: 0.
+Active channel with no updates for >7 days.
+Locked and unproductive capital.
+Consider closing persistent zombies.",
+    "Msat ganados enrutando pagos de terceros.
+Tendencia creciente = nodo utilizado como hub.
+Mainnet: buenos nodos ganan 100k+ msat/mes.
+Testnet4: cifras bajas son normales.": "Earned msats routing third-party payments.
+Rising trend = node is active as a hub.
+Mainnet: good nodes earn 100k+ msat/month.
+Testnet4: low figures are normal.",
+    "Msat pagados en rebalanceos propios.
+Debe ser MENOR que las fees ganadas.
+Si supera lo ganado, estás subsidiendo la red.
+Revisa frecuencia y costo de rebalanceos.": "Paid msats in self-rebalances.
+Must be LESS than fees earned.
+If higher, you are subsidizing the network.
+Review rebalance cost and frequency.",
+    "Pagos totales enrutados por tu nodo.
+Vol: sats totales que pasaron por ti.
+Más forwards = mejor posición en la red.
+Forwards grandes = pagos relevantes enrutados.": "Total payments routed by your node.
+Vol: total sats that passed through you.
+More forwards = better network position.
+Large forwards = relevant routed payments.",
+    "fees_paid / fees_earned × 100.
+<50% Excelente — nodo muy rentable.
+50–100% Aceptable — margen mejorable.
+>100% Pérdida — rebalanceos demasiado caros.": "fees_paid / fees_earned × 100.
+<50% Excellent — very profitable node.
+50–100% Acceptable — room for improvement.
+>100% Loss — rebalances too expensive.",
+    "sats_enrutados / capacidad_total.
+Cuánto de tu capital está 'trabajando'.
+Mainnet: >1% mensual es aceptable.
+Si es 0% en mainnet: revisar fees y conectividad.": "routed_sats / total_capacity.
+How much of your capital is 'working'.
+Mainnet: >1% monthly is acceptable.
+If 0% on mainnet: check fees and connectivity.",
+    "Barras diarias: verde=ganadas, amarillo=pagadas.
+Barras verdes más altas = nodo rentable ese día.
+Días vacíos = sin actividad de enrutamiento.": "Daily bars: green=earned, yellow=paid.
+Tall green bars = profitable node that day.
+Empty days = no routing activity.",
+    "Pagos enrutados por hora en las últimas 24h.
+Picos = alta actividad de enrutamiento.
+Plano en 0 = sin tráfico (normal en testnet4).
+Tendencia creciente = ganando relevancia en la red.": "Hourly routed payments in last 24h.
+Peaks = high routing activity.
+Flat zero = no traffic (normal on testnet4).
+Rising trend = gaining network relevance.",
+    "fees_earned - fees_paid en 7 días.
++ Verde = nodo rentable.
+- Rojo = gastas más en rebalanceos de lo que ganas.
+Objetivo: siempre positivo.": "fees_earned - fees_paid in 7 days.
++ Green = profitable node.
+- Red = spending more on rebalances than earning.
+Goal: always positive.",
+    "Timestamp del último registro en node_history.db.
+Debe ser reciente (min = intervalo configurado).
+Muy desactualizado = colector no está corriendo.": "Timestamp of the last entry in node_history.db.
+Must be recent (min = configured interval).
+Very old = collector is not running."
+  };
+
+  // Cache original ES texts so we can toggle back cleanly
+  const _origTips  = new Map();
+  const _origTexts = new Map();
+
+  function trText(text, isEn) {
+    if (!text || !isEn) return text;
+    const key = text.trim();
+    return EN[key] || text;
+  }
+
+  // Re-applies all translatable labels for the current language setting
+  function applyLang(isEn) {
+    // Tooltips
+    document.querySelectorAll('[data-tip]').forEach(el => {
+      if (!_origTips.has(el)) _origTips.set(el, el.getAttribute('data-tip'));
+      el.setAttribute('data-tip', trText(_origTips.get(el), isEn));
+    });
+    // Static labels
+    ['.top-seg .lbl', '.card-title', '.card-sub', '.bot-label', '.spark-title'].forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        if (!_origTexts.has(el)) _origTexts.set(el, el.textContent);
+        el.textContent = trText(_origTexts.get(el), isEn);
+      });
+    });
+    // "No data" in SVG placeholders
+    document.querySelectorAll('#spark-daily text, #spark-hourly text').forEach(el => {
+      const orig = el.textContent;
+      if (orig === 'Sin datos' || orig === 'No data') {
+        el.textContent = isEn ? 'No data' : 'Sin datos';
+      }
+    });
+    // Zombie sub-label (re-built dynamically)
+    const zCap = document.getElementById('l-zombie-cap');
+    if (zCap) {
+      zCap.textContent = fmtSat(snap.inactive_capital_sat || 0) + (isEn ? ' inactive sats' : ' sats inactivos');
+    }
+    // Reload button label
+    const lbl = document.querySelector('[data-role="reload-lbl"]');
+    if (lbl) lbl.textContent = isEn ? 'REFRESH' : 'REFRESCO';
+    // Timestamp locale
+    if (snap.ts) {
+      const d = new Date(snap.ts * 1000);
+      const tsEl = document.getElementById('b-snap-ts');
+      if (tsEl) tsEl.textContent = d.toLocaleString(isEn ? 'en-US' : 'es', {hour12: false});
+    }
+  }
+
+  // ── Helpers ──
+  const $ = id => document.getElementById(id);
+  const fmtSat = n => n >= 1e6 ? (n/1e6).toFixed(2)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'k' : String(n);
+  const fmtMsat = n => n >= 1e9 ? (n/1e9).toFixed(2)+'M sat' : n >= 1e6 ? (n/1e6).toFixed(1)+'k sat' : (n/1000).toFixed(0)+' sat';
+
+  // ── Clock ──
+  function updateClock(){
+    $('t-clock').textContent = new Date().toLocaleTimeString(currentIsEn ? 'en-US' : 'es',{hour12:false});
+  }
+  setInterval(updateClock, 1000); updateClock();
+
+  // ── Populate from snapshot ──
+  const snap = S.snap || {};
+  if(snap.alias) $('t-alias').textContent = snap.alias;
+  if(snap.block_height) $('t-block').textContent = Number(snap.block_height).toLocaleString();
+
+  if(snap.num_peers !== undefined) {
+    const p = snap.num_peers;
+    const pEl = $('t-peers');
+    pEl.textContent = p;
+    if (p >= 3) { pEl.style.color = 'var(--green)'; pEl.style.textShadow = '0 0 8px var(--green)'; }
+    else if (p === 2) { pEl.style.color = 'var(--amber)'; pEl.style.textShadow = '0 0 8px var(--amber)'; }
+    else { pEl.style.color = 'var(--red)'; pEl.style.textShadow = '0 0 8px var(--red)'; }
+  }
+
+  if(snap.wallet_confirmed !== undefined)
+    $('t-wallet').textContent = fmtSat(snap.wallet_confirmed)+' sat';
+
+  const up = S.uptime_pct_7d || 0;
+  const upEl = $('t-uptime');
+  upEl.textContent = up + '%';
+  if (up >= 95) { upEl.style.color = 'var(--green)'; upEl.style.textShadow = '0 0 8px var(--green)'; }
+  else if (up >= 80) { upEl.style.color = 'var(--amber)'; upEl.style.textShadow = '0 0 8px var(--amber)'; }
+  else { upEl.style.color = 'var(--red)'; upEl.style.textShadow = '0 0 8px var(--red)'; }
+
+  const synced = snap.synced_to_chain === 1;
+  const dot = $('sync-dot');
+  dot.className = synced ? 'synced' : 'unsynced pulse';
+  $('sync-txt').textContent = synced ? 'OK' : 'NO';
+
+  const chA = snap.channels_active || 0;
+  const chT = snap.channels_total || 0;
+  const chEl = $('l-ch-active');
+  chEl.textContent = chA;
+  $('l-ch-total').textContent = chT;
+  const pct = chT > 0 ? (chA/chT*100) : 0;
+  let cColor = 'var(--green)';
+  if (pct < 40) cColor = 'var(--red)';
+  else if (pct < 80) cColor = 'var(--amber)';
+  $('l-ch-bar').style.width = pct + '%';
+  $('l-ch-bar').style.background = cColor;
+  chEl.style.color = cColor;
+  chEl.style.textShadow = `0 0 10px ${cColor}`;
+
+  const liq = snap.liquidity_ratio || 0;
+  const liqEl = $('gauge-pct');
+  liqEl.textContent = liq.toFixed(1) + '%';
+  const arc = document.getElementById('gauge-arc');
+  arc.setAttribute('stroke-dashoffset', 157 - (liq/100)*157);
+  const gc = (liq > 85 || liq < 15) ? 'var(--red)' : (liq > 70 || liq < 30) ? 'var(--amber)' : 'var(--green)';
+  arc.setAttribute('stroke', gc);
+  liqEl.setAttribute('fill', gc);
+
+  $('l-capacity').textContent = fmtSat(snap.capacity_total || 0);
+
+  const z = snap.zombie_channels || 0;
+  const zEl = $('l-zombies');
+  zEl.textContent = z;
+  zEl.className = 'card-val ' + (z > 0 ? 'red' : 'green');
+
+  if (S.zombies_list && S.zombies_list.length > 0) {
+    let zTipEs = "🧟 ZOMBIES DETECTADOS:
+";
+    let zTipEn = "🧟 ZOMBIES DETECTED:
+";
+    S.zombies_list.forEach(zb => {
+      const alias = zb.peer_alias || '?';
+      const line = `- ${alias} (${fmtSat(zb.capacity)} sats)
+`;
+      zTipEs += line; zTipEn += line;
+    });
+    zTipEs += "
+Considera cerrar estos canales.";
+    zTipEn += "
+Consider closing these channels.";
+    EN[zTipEs] = zTipEn;
+    const cardZ = $('card-zombies');
+    if (cardZ) { cardZ.setAttribute('data-tip', zTipEs); _origTips.set(cardZ, zTipEs); }
+  }
+
+  $('r-fees-earned').textContent = fmtMsat(snap.fwd_fees_cum_msat || 0);
+  $('r-fees-paid').textContent = fmtMsat(snap.payments_fees_cum_msat || 0);
+  $('r-fwd-count').textContent = (snap.fwd_count_cum || 0).toLocaleString();
+  $('r-fwd-vol').textContent = fmtSat(snap.fwd_amt_cum_sat || 0);
+
+  const earned = snap.fwd_fees_cum_msat || 1;
+  const paid   = snap.payments_fees_cum_msat || 0;
+  const ratio  = earned > 0 ? (paid/earned*100).toFixed(1) : '0.0';
+  const rEl = $('r-ratio');
+  rEl.textContent = ratio + '%';
+  rEl.className = 'card-val ' + (parseFloat(ratio) > 100 ? 'red' : parseFloat(ratio) > 50 ? 'amber' : 'green');
+
+  $('r-efficiency').textContent = ((snap.capital_efficiency || 0) * 100).toFixed(3) + '%';
+
+  const net7 = S.net_profit_7d_msat || 0;
+  const netEl = $('b-net-profit');
+  netEl.textContent = (net7 >= 0 ? '+' : '') + fmtMsat(net7);
+  netEl.className = 'bot-val ' + (net7 >= 0 ? 'pos' : 'neg');
+
+  if(snap.ts){
+    $('b-snap-ts').textContent = new Date(snap.ts * 1000).toLocaleString(currentIsEn ? 'en-US' : 'es',{hour12:false});
+  }
+
+  // ── Sparklines ──
+  function makeSparkBars(svgId, data, keyEarned, keyPaid, colorE, colorP){
+    const svg = $(svgId);
+    if(!data || data.length === 0) return;
+    svg.innerHTML = '';
+    const W=300, H=55, PAD=4, n=data.length;
+    const bw = (W - PAD*(n+1)) / n;
+    const maxV = Math.max(...data.map(d=>(d[keyEarned]||0)+(d[keyPaid]||0)), 1);
+    data.forEach((d,i)=>{
+      const e=d[keyEarned]||0, p=d[keyPaid]||0, xb=PAD+i*(bw+PAD);
+      const he=(e/maxV)*(H-8), hp=(p/maxV)*(H-8);
+      if(he>0){const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',xb);r.setAttribute('y',H-8-he);r.setAttribute('width',bw/2);r.setAttribute('height',he);r.setAttribute('fill',colorE);r.setAttribute('rx','1');svg.appendChild(r);}
+      if(hp>0){const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',xb+bw/2);r.setAttribute('y',H-8-hp);r.setAttribute('width',bw/2);r.setAttribute('height',hp);r.setAttribute('fill',colorP);r.setAttribute('rx','1');svg.appendChild(r);}
+    });
+    const lg1=document.createElementNS('http://www.w3.org/2000/svg','rect');lg1.setAttribute('x',2);lg1.setAttribute('y',1);lg1.setAttribute('width',6);lg1.setAttribute('height',4);lg1.setAttribute('fill',colorE);
+    const lg2=document.createElementNS('http://www.w3.org/2000/svg','rect');lg2.setAttribute('x',38);lg2.setAttribute('y',1);lg2.setAttribute('width',6);lg2.setAttribute('height',4);lg2.setAttribute('fill',colorP);
+    const t1=document.createElementNS('http://www.w3.org/2000/svg','text');t1.setAttribute('x',10);t1.setAttribute('y',6);t1.setAttribute('fill','rgba(136,136,170,.8)');t1.setAttribute('font-size','5');t1.textContent=currentIsEn?'Earned':'Ganadas';
+    const t2=document.createElementNS('http://www.w3.org/2000/svg','text');t2.setAttribute('x',46);t2.setAttribute('y',6);t2.setAttribute('fill','rgba(136,136,170,.8)');t2.setAttribute('font-size','5');t2.textContent=currentIsEn?'Paid':'Pagadas';
+    svg.appendChild(lg1);svg.appendChild(t1);svg.appendChild(lg2);svg.appendChild(t2);
+  }
+
+  function makeSparkLine(svgId, data, key, color){
+    const svg=$(svgId); if(!data||data.length===0) return; svg.innerHTML='';
+    const W=300,H=55,PAD=6;
+    const vals=data.map(d=>d[key]||0), maxV=Math.max(...vals,1);
+    const pts=vals.map((v,i)=>`${PAD+(i/(vals.length-1||1))*(W-2*PAD)},${H-PAD-(v/maxV)*(H-2*PAD)}`);
+    const area=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    area.setAttribute('points',pts.join(' '));area.setAttribute('fill','none');area.setAttribute('stroke',color);area.setAttribute('stroke-width','1.5');area.setAttribute('stroke-linejoin','round');svg.appendChild(area);
+    const last=pts[pts.length-1].split(',');
+    const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');dot.setAttribute('cx',last[0]);dot.setAttribute('cy',last[1]);dot.setAttribute('r','3');dot.setAttribute('fill',color);svg.appendChild(dot);
+  }
+
+  makeSparkBars('spark-daily', S.daily, 'fees_earned_msat', 'fees_paid_msat', '#00ff88', '#ffcc00');
+  makeSparkLine('spark-hourly', S.hourly, 'fwd_count_delta', '#00dcff');
+
+  // ── Auto-reload countdown ──
+  (function(){
+    var RELOAD_SECS = 300, remaining = RELOAD_SECS;
+    var indEl = document.createElement('div');
+    indEl.className = 'top-seg';
+    indEl.style.cssText = 'border-left:1px solid rgba(0,220,255,.2);min-width:72px;';
+    indEl.innerHTML = '<span class="lbl" data-role="reload-lbl">'+(currentIsEn?'REFRESH':'REFRESCO')+'</span><span class="val" id="reload-cd" style="font-size:13px;color:var(--sub);">5:00</span>';
+    document.getElementById('hud-top').appendChild(indEl);
+    var cdEl = document.getElementById('reload-cd');
+    setInterval(function(){
+      remaining--;
+      if(remaining<=0){location.reload();return;}
+      var m=Math.floor(remaining/60),s=remaining%60;
+      cdEl.textContent=m+':'+(s<10?'0':'')+s;
+      if(remaining<=30) cdEl.style.color='var(--amber)';
+    },1000);
+  })();
+
+  // ── Initial translation pass ──
+  applyLang(currentIsEn);
+
+  // ── Listen for lang-change postMessage from parent window ──
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'lang-change') {
+      currentIsEn = (e.data.lang === 'en');
+      applyLang(currentIsEn);
+      // Sparkline legends need individual update (SVG text nodes cached in makeSparkBars)
+      const sparkLegends = document.querySelectorAll('#spark-daily text');
+      if (sparkLegends.length >= 2) {
+        sparkLegends[0].textContent = currentIsEn ? 'Earned' : 'Ganadas';
+        sparkLegends[1].textContent = currentIsEn ? 'Paid' : 'Pagadas';
+      }
+    }
+  });
+
+})();
+
+</script>
+
+<div id="hud-floatip"></div>
+<script>
+(function(){
+  const tip = document.getElementById('hud-floatip');
+  if(!tip) return;
+  document.querySelectorAll('[data-tip]').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      tip.textContent = el.getAttribute('data-tip');
+      tip.style.display = 'block';
+    });
+    el.addEventListener('mousemove', e => {
+      let x = e.clientX + 16, y = e.clientY - 12;
+      const tw = 270, th = tip.offsetHeight || 120;
+      if (x + tw > window.innerWidth)  x = e.clientX - tw - 10;
+      if (y + th > window.innerHeight) y = e.clientY - th - 10;
+      tip.style.left = x + 'px';
+      tip.style.top  = y + 'px';
+    });
+    el.addEventListener('mouseleave', () => {
+      tip.style.display = 'none';
+    });
+  });
+})();
+</script>
+</body>
+</html>

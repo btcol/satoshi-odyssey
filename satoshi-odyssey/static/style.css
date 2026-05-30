@@ -1,0 +1,1185 @@
+/* Fuentes de texto e íconos emoji —
+   Se cargan Inter y JetBrains Mono para texto,
+   y Noto Color Emoji para que los emojis se rendericen
+   correctamente incluso en Linux sin fuentes emoji instaladas. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Color+Emoji&display=swap');
+
+:root {
+  --bg:       #07070f;
+  --panel:    #0d0d1e;
+  --panel2:   #111128;
+  --border:   #1a1a35;
+  --accent:   #00dcff;
+  --accent2:  #7b2fff;
+  --gold:     #ffd700;
+  --green:    #00ff88;
+  --red:      #ff4466;
+  --yellow:   #ffcc00;
+  --text:     #d0d8f0;
+  --subtext:  #8888aa;
+  /* Stack de fuentes: Inter para texto, con emoji como fallback prioritario
+     para que los iconos se rendericen en cualquier SO/navegador */
+  --font:     'Inter', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji',
+              'Segoe UI Symbol', 'DejaVu Sans', sans-serif;
+  --mono:     'JetBrains Mono', 'JetBrains Mono', 'Noto Color Emoji',
+              'Apple Color Emoji', 'DejaVu Sans Mono', monospace;
+  --font-emoji: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji',
+                'Segoe UI Symbol', 'Twemoji Mozilla', sans-serif;
+  --radius:   8px;
+  --transition: 0.18s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Twemoji: normalizar las im\u00e1genes SVG que reemplazan los emojis de texto.
+   Se usa height:1em para que escalen proporcialmente con el font-size del contexto. */
+img.emoji {
+  display: inline-block;
+  height: 1em;
+  width: 1em;
+  margin: 0 0.05em 0 0.1em;
+  vertical-align: -0.1em;
+  /* Evitar que el filtro de CSS de game-achievement-emoji afecte a los SVG */
+  filter: none !important;
+}
+
+/* Excepcion: en el avatar del juego queremos que sea m\u00e1s grande */
+.game-avatar img.emoji {
+  height: 1.2em;
+  width: 1.2em;
+  margin: 0;
+  vertical-align: middle;
+  filter: none !important;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  /* overflow se gestiona por contexto: desktop=hidden, móvil=auto */
+  overflow: hidden;
+}
+
+/* ── Layout ──────────────────────────────────────────────── */
+#app {
+  display: grid;
+  grid-template-rows: 56px 1fr;
+  height: 100vh;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+#header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+}
+
+#header .logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+#node-status {
+  font-size: 12px;
+  color: var(--subtext);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#node-status.online { color: var(--green); }
+#node-status.offline { color: var(--red); }
+
+/* ── Body split: sidebar tabs + content ──────────────────── */
+#body {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  overflow: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+#sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  cursor: pointer;
+  color: var(--subtext);
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  border-left: 3px solid transparent;
+  transition: var(--transition);
+}
+
+.tab-btn:hover { background: var(--panel2); color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+  background: var(--panel2);
+  border-left-color: var(--accent);
+}
+
+/* Iconos emoji en el sidebar — fuente emoji explícita para
+   garantizar renderizado correcto en Linux sin fuentes emoji */
+.tab-btn .icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  font-family: var(--font-emoji);
+  /* Forzar presentación emoji (no texto) para caracteres duales */
+  font-variant-emoji: emoji;
+}
+
+/* ── Content ─────────────────────────────────────────────── */
+#content {
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.tab-pane { display: none; animation: fadeIn 0.2s ease; }
+.tab-pane.active { display: block; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ── Títulos de sección ──────────────────────────────────── */
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Tarjetas / Paneles ──────────────────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.card-header {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Grid de métricas ────────────────────────────────────── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.metric-box {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  transition: border-color var(--transition);
+}
+
+.metric-box:hover { border-color: var(--accent); }
+.metric-label { font-size: 11px; color: var(--subtext); margin-bottom: 4px; }
+.metric-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+.metric-val.green { color: var(--green); }
+.metric-val.red   { color: var(--red); }
+.metric-val.gold  { color: var(--gold); }
+.metric-val.amber { color: var(--yellow); }
+
+/* ── Botones ──────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.btn:hover { background: rgba(0,220,255,0.12); }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-danger { border-color: var(--red); color: var(--red); }
+.btn-danger:hover { background: rgba(255,68,102,0.12); }
+
+.btn-success { border-color: var(--green); color: var(--green); }
+.btn-success:hover { background: rgba(0,255,136,0.10); }
+
+.btn-ghost { border-color: var(--border); color: var(--subtext); }
+.btn-ghost:hover { background: var(--panel2); color: var(--text); }
+
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+/* ── Inputs / Formularios ────────────────────────────────── */
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 11px; color: var(--subtext); font-weight: 500; }
+
+input[type="text"], input[type="number"], input[type="password"], select, textarea {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+input[readonly] { color: var(--subtext); }
+
+.input-wide { min-width: 340px; }
+
+/* ── Tablas ───────────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+thead th {
+  background: var(--bg);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--panel2); }
+tbody tr.selected { background: rgba(0,220,255,0.08); }
+
+tbody td {
+  padding: 9px 12px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.td-alias { color: var(--text); font-family: var(--font); font-weight: 500; }
+.td-green { color: var(--green); }
+.td-red   { color: var(--red); }
+.td-gold  { color: var(--gold); }
+.td-amber { color: var(--yellow); }
+.td-sub   { color: var(--subtext); }
+
+/* ── Log Terminal ─────────────────────────────────────────── */
+.log-box {
+  background: #030308;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--green);
+  height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+.log-box .log-err { color: var(--red); }
+.log-box .log-ok  { color: var(--green); }
+.log-box .log-warn{ color: var(--yellow); }
+
+/* ── Badge / Chip ─────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-open   { background: rgba(0,255,136,.15); color: var(--green); }
+.badge-pending{ background: rgba(255,204,0,.15);  color: var(--yellow); }
+.badge-close  { background: rgba(255,68,102,.15); color: var(--red); }
+.badge-active { background: rgba(0,220,255,.15);  color: var(--accent); }
+
+/* ── Barra de acciones ────────────────────────────────────── */
+.action-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+/* ── iFrame cockpit ───────────────────────────────────────── */
+.cockpit-iframe-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.cockpit-iframe-wrap iframe {
+  width: 100%;
+  height: 480px;
+  border: none;
+  display: block;
+}
+
+/* ── Tab btcol ────────────────────────────────────────────── */
+.btcol-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 16px;
+  text-align: center;
+}
+
+.btcol-hero h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.btcol-hero p { color: var(--subtext); max-width: 600px; }
+
+.feature-list {
+  list-style: none;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-width: 700px;
+  width: 100%;
+}
+
+.feature-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.feature-list li .fi { color: var(--accent); font-size: 16px; }
+
+.version-tag {
+  font-size: 11px;
+  color: var(--subtext);
+  font-style: italic;
+}
+
+/* ── Loading / Spinner ────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 10px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  animation: slideIn 0.25s ease, fadeOut 0.4s ease 2.8s forwards;
+  pointer-events: auto;
+}
+
+.toast-ok  { background: rgba(0,255,136,.12); border-color: var(--green); color: var(--green); }
+.toast-err { background: rgba(255,68,102,.12); border-color: var(--red);   color: var(--red); }
+.toast-info{ background: rgba(0,220,255,.12); border-color: var(--accent); color: var(--accent); }
+
+@keyframes slideIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform:none; } }
+@keyframes fadeOut { to { opacity:0; } }
+
+/* ── Separador ────────────────────────────────────────────── */
+.sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ── Toggle Switch ────────────────────────────────────────── */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 22px;
+  transition: var(--transition);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 3px; top: 3px;
+  background: var(--subtext);
+  border-radius: 50%;
+  transition: var(--transition);
+}
+
+.toggle-switch input:checked + .toggle-slider { background: rgba(0,220,255,0.3); border: 1px solid var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: var(--accent); }
+
+/* ── Utilidades ───────────────────────────────────────────── */
+
+.text-accent { color: var(--accent); }
+.text-green  { color: var(--green); }
+.text-red    { color: var(--red); }
+.text-gold   { color: var(--gold); }
+.text-sub    { color: var(--subtext); font-size: 12px; }
+.mono        { font-family: var(--mono); }
+.bold        { font-weight: 700; }
+.flex        { display: flex; align-items: center; gap: 8px; }
+.mt-sm       { margin-top: 8px; }
+.mt-md       { margin-top: 14px; }
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile First
+   Breakpoint principal: 768px
+   ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* 1. Desbloquear el scroll del documento en móvil */
+  html, body {
+    overflow: auto;
+    height: auto;
+    min-height: 100%;
+  }
+
+  /* 2. App ocupa altura mínima en lugar de 100vh fijo */
+  #app {
+    height: auto;
+    min-height: 100vh;
+    grid-template-rows: auto auto;
+  }
+
+  /* 3. Header compacto */
+  #header {
+    padding: 0 12px;
+    gap: 10px;
+    height: 48px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+
+  #header .logo { font-size: 15px; }
+  #node-status  { font-size: 11px; }
+
+  /* 4. Layout pasa a columna */
+  #body {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  /* 5. Sidebar → barra de tabs horizontal sticky bajo el header */
+  #sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+    border-right: none;
+    border-bottom: 2px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    top: 48px;              /* justo bajo el header */
+    z-index: 100;
+    scrollbar-width: none;  /* Firefox */
+    flex-shrink: 0;
+  }
+  #sidebar::-webkit-scrollbar { display: none; }
+
+  /* 6. Botones de pestaña en horizontal */
+  .tab-btn {
+    flex-direction: column;
+    width: auto;
+    min-width: 72px;
+    padding: 8px 12px;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    font-size: 11px;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .tab-btn .icon { font-size: 18px; }
+
+  .tab-btn.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--accent);
+    background: var(--panel2);
+  }
+
+  /* 7. Content scrollea normalmente */
+  #content {
+    overflow: visible;
+    padding: 14px;
+    height: auto;
+  }
+
+  /* 8. Pestañas: mostrar/ocultar sin altura fija */
+  .tab-pane.active {
+    display: block;
+    min-height: 60vh;
+    animation: none; /* quitar animación para mejor rendimiento en móvil */
+  }
+
+  /* 9. Cockpit — iframe con altura relativa en móvil */
+  #tab-cockpit {
+    padding: 0 !important;
+  }
+
+  #cockpit-placeholder {
+    height: 70vh !important;
+  }
+
+  #cockpit-iframe {
+    height: 70vh !important;
+  }
+
+  /* 10. Grillas de métricas: 2 columnas en móvil */
+  .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .metric-val { font-size: 16px; }
+
+  /* 11. btcol hero: sin desbordamiento */
+  .btcol-hero { padding: 24px 12px; }
+  .btcol-hero h1 { font-size: 20px; }
+
+  .feature-list {
+    grid-template-columns: 1fr;
+  }
+
+  /* 12. Barras de acción apiladas */
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  /* El bloque auto-escaneo (margin-left:auto en desktop) ocupa todo el ancho */
+  .action-bar > div[style*="margin-left:auto"] {
+    margin-left: 0 !important;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  /* 13. Botones a ancho completo */
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Excepción: botones pequeños auxiliares no necesitan ser full-width */
+  .btn.btn-sm {
+    width: auto;
+  }
+
+  /* 14. Formularios en columna */
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .form-group { width: 100%; }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  select,
+  textarea {
+    width: 100% !important;
+    min-width: unset !important;
+    box-sizing: border-box;
+  }
+
+  .input-wide { min-width: 100%; }
+
+  /* 15. Tablas con scroll horizontal */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius);
+  }
+
+  table { min-width: 500px; }
+
+  /* 16. Log boxes más altas para leer bien */
+  .log-box { height: 200px !important; font-size: 11px; }
+
+  /* 17. Cards */
+  .card { padding: 12px; }
+
+  /* 18. Reducir altura fija del log de red */
+  #log-network { height: 220px !important; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   GAMIFICACIÓN — Pestaña Aventura
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Botón especial en sidebar para Aventura ─────────────── */
+.tab-btn-game {
+  margin-top: auto;          /* empuja al fondo del sidebar */
+  border-top: 1px solid var(--border);
+  color: var(--gold) !important;
+  position: relative;
+  overflow: hidden;
+}
+.tab-btn-game::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,215,0,0.04), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.4s ease;
+}
+.tab-btn-game:hover::before { transform: translateX(100%); }
+.tab-btn-game:hover { background: rgba(255,215,0,0.06) !important; }
+.tab-btn-game.active {
+  background: rgba(255,215,0,0.08) !important;
+  border-left-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
+/* ── Tarjeta de perfil del operador ──────────────────────── */
+.game-profile-card {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 24px;
+  background: linear-gradient(135deg,
+    rgba(13,13,30,0.95) 0%,
+    rgba(20,10,40,0.95) 100%);
+  border: 1px solid rgba(123,47,255,0.35);
+  border-radius: 14px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(123,47,255,0.08);
+}
+/* Efecto de brillo sutil en el fondo */
+.game-profile-card::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -20%;
+  width: 60%;
+  height: 200%;
+  background: radial-gradient(ellipse, rgba(123,47,255,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Columna avatar + rango ──────────────────────────────── */
+.game-avatar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.game-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(123,47,255,0.3) 0%, rgba(0,220,255,0.1) 100%);
+  border: 2px solid rgba(123,47,255,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  /* Fuente emoji explícita para el avatar */
+  font-family: var(--font-emoji);
+  box-shadow: 0 0 20px rgba(123,47,255,0.25), 0 0 40px rgba(0,220,255,0.08);
+  animation: avatarPulse 3s ease-in-out infinite;
+}
+
+@keyframes avatarPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(123,47,255,0.25), 0 0 40px rgba(0,220,255,0.08); }
+  50%       { box-shadow: 0 0 28px rgba(123,47,255,0.45), 0 0 55px rgba(0,220,255,0.15); }
+}
+
+.game-rank-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(255,215,0,0.08);
+  border: 1px solid rgba(255,215,0,0.25);
+  border-radius: 99px;
+  padding: 4px 14px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.game-rank-level {
+  font-size: 11px;
+  color: var(--subtext);
+}
+
+/* ── Columna barras de XP/HP ─────────────────────────────── */
+.game-bars-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+}
+
+.game-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.game-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.game-bar-icon { font-size: 14px; font-family: var(--font-emoji); }
+
+.game-bar-value {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.game-bar-track {
+  height: 10px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.game-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+}
+
+/* Barra XP: gradiente azul-cyan */
+.game-bar-xp {
+  background: linear-gradient(90deg, #7b2fff 0%, #00dcff 100%);
+  box-shadow: 0 0 8px rgba(0,220,255,0.4);
+}
+/* Shimmer animado sobre la barra XP */
+.game-bar-xp::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
+  animation: barShimmer 2.5s ease-in-out infinite;
+}
+
+/* Barra HP: gradiente verde-amarillo-rojo según valor */
+.game-bar-hp {
+  background: linear-gradient(90deg, #ff4466 0%, #ffcc00 50%, #00ff88 100%);
+  background-size: 300% 100%;
+  /* La posición se controla por JS según el HP actual */
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+              background-position 0.8s ease;
+}
+
+@keyframes barShimmer {
+  0%   { transform: translateX(-100%); }
+  60%  { transform: translateX(200%); }
+  100% { transform: translateX(200%); }
+}
+
+.game-bar-hint {
+  font-size: 11px;
+  min-height: 14px;
+}
+
+/* ── Pills de stats rápidas ──────────────────────────────── */
+.game-quick-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.game-stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.game-stat-icon { font-size: 14px; font-family: var(--font-emoji); }
+
+/* ── Grid de misiones ────────────────────────────────────── */
+.game-quests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.game-quest-card {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.game-quest-card:hover {
+  border-color: rgba(0,220,255,0.3);
+  box-shadow: 0 0 12px rgba(0,220,255,0.06);
+}
+
+/* Borde verde para misiones completadas */
+.game-quest-card.quest-completed {
+  border-color: rgba(0,255,136,0.4);
+  background: rgba(0,255,136,0.04);
+}
+
+.game-quest-card.quest-completed::before {
+  content: '✓';
+  position: absolute;
+  top: 10px; right: 12px;
+  font-size: 14px;
+  color: var(--green);
+  font-weight: 700;
+}
+
+.game-quest-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-quest-emoji {
+  font-size: 20px;
+  flex-shrink: 0;
+  font-family: var(--font-emoji);
+}
+
+.game-quest-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.game-quest-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.game-quest-type-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.badge-milestone {
+  background: rgba(123,47,255,0.15);
+  color: #b07fff;
+  border: 1px solid rgba(123,47,255,0.3);
+}
+.badge-weekly {
+  background: rgba(0,220,255,0.1);
+  color: var(--accent);
+  border: 1px solid rgba(0,220,255,0.25);
+}
+
+.game-quest-xp {
+  font-size: 11px;
+  color: var(--gold);
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.game-quest-desc {
+  font-size: 11px;
+  color: var(--subtext);
+  line-height: 1.4;
+}
+
+.game-quest-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-quest-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.game-quest-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent2) 0%, var(--accent) 100%);
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.game-quest-pct {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--accent);
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ── Vitrina de trofeos ──────────────────────────────────── */
+.game-achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.game-achievement-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  text-align: center;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Trofeo desbloqueado */
+.game-achievement-card.unlocked {
+  border-color: rgba(255,215,0,0.4);
+  background: linear-gradient(135deg,
+    rgba(255,215,0,0.06) 0%,
+    rgba(123,47,255,0.04) 100%);
+  box-shadow: 0 0 20px rgba(255,215,0,0.08);
+}
+
+.game-achievement-card.unlocked::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,215,0,0.06), transparent);
+  animation: achieveShimmer 4s ease-in-out infinite;
+}
+
+@keyframes achieveShimmer {
+  0%   { left: -100%; }
+  50%  { left: 150%; }
+  100% { left: 150%; }
+}
+
+/* Trofeo bloqueado */
+.game-achievement-card.locked {
+  opacity: 0.4;
+  filter: grayscale(0.6);
+}
+
+.game-achievement-emoji {
+  font-size: 32px;
+  line-height: 1;
+  font-family: var(--font-emoji);
+  filter: drop-shadow(0 0 6px rgba(255,215,0,0.3));
+  transition: transform var(--transition);
+}
+
+.game-achievement-card.unlocked:hover .game-achievement-emoji {
+  transform: scale(1.15) rotate(-5deg);
+}
+
+.game-achievement-card.locked .game-achievement-emoji {
+  filter: grayscale(1) opacity(0.5);
+}
+
+.game-achievement-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.game-achievement-desc {
+  font-size: 10px;
+  color: var(--subtext);
+  line-height: 1.4;
+}
+
+.game-achievement-date {
+  font-size: 10px;
+  color: var(--gold);
+  font-family: var(--mono);
+  margin-top: auto;
+}
+
+.game-achievement-locked-label {
+  font-size: 10px;
+  color: var(--subtext);
+  font-style: italic;
+}
+
+/* ── Toast especial para logros desbloqueados ────────────── */
+.toast-achievement {
+  background: linear-gradient(135deg,
+    rgba(255,215,0,0.15) 0%,
+    rgba(123,47,255,0.12) 100%);
+  border: 1px solid rgba(255,215,0,0.4);
+  color: var(--gold);
+  font-size: 14px;
+  padding: 12px 20px;
+  min-width: 240px;
+}
+
+/* ── Responsive: Aventura en móvil ───────────────────────── */
+@media (max-width: 768px) {
+  .game-profile-card {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .game-avatar-col { flex-direction: row; justify-content: center; }
+  .game-avatar { width: 60px; height: 60px; font-size: 28px; }
+
+  .game-quests-grid,
+  .game-achievements-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tab-btn-game { margin-top: 0; }
+}

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Satoshi-Odyssey ⚡</title>
+  <meta name="description" content="Panel de control web para nodo Lightning Network LND — btcol"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>"/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <!--
+    Twemoji: librería de Mozilla/Twitter que convierte los emojis del DOM
+    en imágenes SVG, garantizando renderizado correcto en Linux y cualquier
+    entorno sin fuentes emoji instaladas.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/@twemoji/api@15.1.0/dist/twemoji.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════════════════════════════════════════════ HEADER -->
+  <header id="header">
+    <div class="logo">⚡ Lightning Dashboard</div>
+    <div id="node-status">Detectando nodo...</div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════ BODY -->
+  <div id="body">
+
+    <!-- SIDEBAR -->
+    <nav id="sidebar">
+      <button class="tab-btn active" data-tab="btcol">
+        <span class="icon">🏠</span> btcol
+      </button>
+      <button class="tab-btn" data-tab="network">
+        <span class="icon">🌐</span> Red
+      </button>
+      <button class="tab-btn" data-tab="cockpit">
+        <span class="icon">🚀</span> Cockpit HUD
+      </button>
+      <button class="tab-btn" data-tab="wallet">
+        <span class="icon">👛</span> Wallet On-chain
+      </button>
+      <button class="tab-btn" data-tab="rebalance">
+        <span class="icon">⚖️</span> Rebalanceo
+      </button>
+      <button class="tab-btn" data-tab="open">
+        <span class="icon">🔌</span> Apertura Canales
+      </button>
+      <button class="tab-btn" data-tab="close">
+        <span class="icon">❌</span> Cierre Canales
+      </button>
+      <button class="tab-btn tab-btn-game" data-tab="aventura">
+        <span class="icon">⚔️</span> Aventura
+      </button>
+    </nav>
+
+    <!-- CONTENT -->
+    <main id="content">
+
+      <!-- ════════════════════════════════════════════ TAB: BTCOL -->
+      <section class="tab-pane active" id="tab-btcol">
+        <div class="btcol-hero">
+          <img src="/images/ln-cockpit-Big.png" alt="Lightning Dashboard btcol" style="max-width:340px;width:90%;margin-bottom:8px;"/>
+          <h1>Satoshi Odyssey - BTCOL</h1>
+          <p>Orquestador web unificado para tu nodo Lightning Network LND. Administra canales, wallet on-chain, rebalanceo y más, todo desde el navegador — sin necesidad de escritorio gráfico.</p>
+          <ul class="feature-list">
+            <li><span class="fi">🌐</span><div><strong>Red &amp; Cockpit HUD</strong><br><span class="text-sub">Visualización 3D y métricas</span></div></li>
+            <li><span class="fi">👛</span><div><strong>Wallet On-chain</strong><br><span class="text-sub">UTXOs, balances y SCB</span></div></li>
+            <li><span class="fi">⚖️</span><div><strong>Rebalanceo Circular</strong><br><span class="text-sub">Sugerencias y ejecución</span></div></li>
+            <li><span class="fi">🔌</span><div><strong>Apertura de Canales</strong><br><span class="text-sub">Smart Open con Push Amount</span></div></li>
+            <li><span class="fi">❌</span><div><strong>Cierre de Canales</strong><br><span class="text-sub">Cooperativo o Force Close</span></div></li>
+            <li><span class="fi">📊</span><div><strong>Historial SQLite</strong><br><span class="text-sub">Métricas de rentabilidad</span></div></li>
+          </ul>
+          <div class="version-tag" id="btcol-version" style="margin-bottom:16px;">Versión: cargando...</div>
+          
+          <div style="padding:16px;background:rgba(20,20,40,0.6);border:1px solid rgba(123,47,255,0.3);border-radius:12px;text-align:center;max-width:500px;margin:0 auto;">
+            <h3 style="color:var(--accent);margin-top:0;margin-bottom:8px;font-size:16px;">🤝 Apoya el Proyecto</h3>
+            <p style="font-size:13px;color:var(--sub);margin-bottom:12px;line-height:1.5;">Si estas herramientas open source te han sido de utilidad y quieres apoyar para que sigan creciendo, ¡tu donación es bienvenida! Esto ayuda al mantenedor a seguir desarrollando.</p>
+            <img src="/images/btcol_invoice.svg" alt="Donación Lightning" style="max-width:180px;border-radius:8px;"/>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ TAB: RED -->
+      <section class="tab-pane" id="tab-network">
+        <div class="section-title">🌐 Escaneo de Red</div>
+
+        <div class="metrics-grid" id="metrics-grid">
+          <div class="metric-box"><div class="metric-label">Canales Activos</div><div class="metric-val" id="m-channels">—</div></div>
+          <div class="metric-box"><div class="metric-label">Liquidez Local</div><div class="metric-val" id="m-liq">—</div></div>
+          <div class="metric-box"><div class="metric-label">Capacidad Total</div><div class="metric-val" id="m-cap">—</div></div>
+          <div class="metric-box"><div class="metric-label">Net Profit 7d</div><div class="metric-val" id="m-net">—</div></div>
+          <div class="metric-box"><div class="metric-label">Fees Ganadas</div><div class="metric-val" id="m-earned">—</div></div>
+          <div class="metric-box"><div class="metric-label">Fees Pagadas</div><div class="metric-val" id="m-paid">—</div></div>
+          <div class="metric-box"><div class="metric-label">Zombies</div><div class="metric-val" id="m-zombies">—</div></div>
+          <div class="metric-box"><div class="metric-label">Uptime 24h</div><div class="metric-val" id="m-uptime">—</div></div>
+        </div>
+
+        <div class="action-bar">
+          <div class="form-group flex">
+            <label for="hops-select">Saltos:</label>
+            <select id="hops-select">
+              <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option>
+            </select>
+          </div>
+          <button class="btn" id="btn-scan">🔍 Escanear Red</button>
+          <button class="btn btn-ghost btn-sm" id="btn-refresh-metrics">↻ Refrescar métricas</button>
+
+          <!-- Auto-escaneo -->
+          <div style="display:flex;align-items:center;gap:10px;margin-left:auto;">
+            <span class="text-sub">Auto-escaneo:</span>
+            <label class="toggle-switch" title="Activar escaneo automático periódico">
+              <input type="checkbox" id="auto-scan-toggle"/>
+              <span class="toggle-slider"></span>
+            </label>
+            <select id="auto-scan-interval" style="width:80px;" title="Intervalo entre escaneos">
+              <option value="300">5 min</option>
+              <option value="900">15 min</option>
+              <option value="1800" selected>30 min</option>
+              <option value="3600">1 hora</option>
+            </select>
+            <span id="auto-scan-next" class="text-sub" style="font-size:11px;min-width:100px;"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Log de Escaneo</div>
+          <div class="log-box" id="log-network" style="height:300px;">Pulsa "Escanear Red" para actualizar el dataset de la red pública.</div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ TAB: COCKPIT HUD -->
+      <section class="tab-pane" id="tab-cockpit" style="padding:0;overflow:hidden;">
+
+        <!-- Placeholder con logo mientras se genera -->
+        <div id="cockpit-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - 56px);gap:16px;">
+          <img src="/images/ln-cockpit-Small.png" alt="Cockpit HUD" style="max-width:220px;opacity:0.7;"/>
+          <p class="text-sub">Cargando Cockpit HUD...</p>
+          <div class="spinner" style="width:20px;height:20px;border-width:3px;"></div>
+        </div>
+
+        <!-- iframe ocupa todo el espacio disponible -->
+        <iframe id="cockpit-iframe" src="" title="Cockpit HUD"
+          style="display:none;width:100%;height:calc(100vh - 56px);border:none;"></iframe>
+
+      </section>
+
+      <!-- ════════════════════════════════════════════ TAB: WALLET -->
+      <section class="tab-pane" id="tab-wallet">
+        <div class="section-title">👛 Wallet On-chain</div>
+
+        <div class="action-bar">
+          <button class="btn" id="btn-wallet-refresh">↻ Refrescar Todo</button>
+        </div>
+
+        <!-- Balance -->
+        <div class="card">
+          <div class="card-header">Balance y Reservas</div>
+          <div class="metrics-grid">
+            <div class="metric-box"><div class="metric-label">Confirmado</div><div class="metric-val green" id="w-conf">—</div></div>
+            <div class="metric-box"><div class="metric-label">Sin confirmar</div><div class="metric-val amber" id="w-unconf">—</div></div>
+            <div class="metric-box"><div class="metric-label">Reserva Anchor</div><div class="metric-val" id="w-anchor">—</div></div>
+          </div>
+          <div id="w-warn" class="text-red" style="font-size:12px;"></div>
+        </div>
+
+        <!-- Nueva dirección -->
+        <div class="card">
+          <div class="card-header">Nueva Dirección para Recibir Fondos</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tipo</label>
+              <select id="addr-type">
+                <option value="p2wkh">p2wkh (bech32)</option>
+                <option value="np2wkh">np2wkh (segwit anidado)</option>
+                <option value="p2tr">p2tr (taproot)</option>
+              </select>
+            </div>
+            <button class="btn" id="btn-gen-addr">Generar Dirección</button>
+            <button class="btn btn-ghost btn-sm" id="btn-copy-addr">Copiar</button>
+          </div>
+          <input type="text" id="new-addr" readonly placeholder="La dirección aparecerá aquí..." style="width:100%;margin-top:6px;"/>
+        </div>
+
+        <!-- UTXOs -->
+        <div class="card">
+          <div class="card-header">UTXOs <span id="utxo-summary" class="text-sub"></span></div>
+          <div class="table-wrap">
+            <table id="utxo-table">
+              <thead><tr>
+                <th>TXID</th><th>N</th><th>Monto (sats)</th><th>Confirmaciones</th><th>Tipo</th>
+              </tr></thead>
+              <tbody id="utxo-tbody"></tbody>
+            </table>
+          </div>
+          <div class="form-row mt-sm">
+            <div class="form-group">
+              <label>Fee (sat/vbyte)</label>
+              <input type="number" id="cons-fee" value="2" style="width:70px;"/>
+            </div>
+            <button class="btn btn-danger" id="btn-consolidate">Consolidar UTXOs</button>
+            <span class="text-sub">Mueve TODOS los fondos a la dirección generada arriba</span>
+          </div>
+          <div class="log-box" id="log-wallet" style="height:120px;">—</div>
+        </div>
+
+        <!-- SCB -->
+        <div class="card">
+          <div class="card-header">Backup de Canales (SCB)</div>
+          <div class="flex" style="flex-wrap:wrap;gap:12px;">
+            <div>
+              <div class="text-sub">SCB automático LND:</div>
+              <div id="scb-auto" class="mono" style="font-size:12px;">buscando...</div>
+            </div>
+            <div>
+              <div class="text-sub">Último backup manual:</div>
+              <div id="scb-manual" class="mono" style="font-size:12px;">—</div>
+            </div>
+            <button class="btn btn-sm" id="btn-scb-export" style="margin-left:auto;">Exportar SCB ahora</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ TAB: REBALANCEO -->
+      <section class="tab-pane" id="tab-rebalance">
+        <div class="section-title">⚖️ Rebalanceo Circular</div>
+
+        <div class="action-bar">
+          <div class="form-group flex">
+            <label>Ratio Local/Remoto:</label>
+            <input type="range" id="ratio-slider" min="10" max="90" value="50" style="width:120px;"/>
+            <span id="ratio-display" class="text-accent">50/50</span>
+          </div>
+          <button class="btn" id="btn-calc-sugs">Calcular Sugerencias</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="sug-table">
+            <thead><tr>
+              <th>Monto (sats)</th><th>From SCID</th><th>To SCID</th><th>Peer From</th><th>Peer To</th>
+            </tr></thead>
+            <tbody id="sug-tbody"></tbody>
+          </table>
+        </div>
+        <div class="text-sub mt-sm">* Haz clic en una fila para pre-rellenar el formulario.</div>
+
+        <hr class="sep"/>
+        <div class="section-title" style="font-size:15px;">Control Manual</div>
+
+        <div class="card">
+          <div class="form-row">
+            <div class="form-group">
+              <label>From SCID</label>
+              <input type="text" id="reb-from-scid" placeholder="129925x3x0" style="width:160px;"/>
+            </div>
+            <div class="form-group">
+              <label>To SCID (ref)</label>
+              <input type="text" id="reb-to-scid" placeholder="129925x4x0" style="width:160px;"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label>To Pubkey</label>
+              <input type="text" id="reb-to-pub" placeholder="02abe..." style="width:100%;"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Monto (sats)</label>
+              <input type="number" id="reb-amt" value="10000" style="width:120px;"/>
+            </div>
+            <div class="form-group">
+              <label>Max Fee (sats)</label>
+              <input type="number" id="reb-fee" value="100" style="width:100px;"/>
+            </div>
+            <div class="form-group">
+              <label>Max PPM</label>
+              <input type="number" id="reb-ppm" value="1000" style="width:100px;"/>
+            </div>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-ghost btn-sm" id="btn-simulate">1. Analizar Rentabilidad</button>
+            <button class="btn btn-success" id="btn-exec-reb">2. EJECUTAR REBALANCEO</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-reb-log">Limpiar Log</button>
+          </div>
+          <div class="log-box" id="log-rebalance">Selecciona una sugerencia o rellena el formulario y ejecuta.</div>
+        </div>
+
+        <!-- ── PILOTO AUTOMÁTICO EXPERIMENTAL ── -->
+        <hr class="sep"/>
+        <div class="card" style="border-color:rgba(123,47,255,0.4);">
+          <div class="card-header" style="color:var(--accent2);">🤖 Piloto Automático Experimental</div>
+          <p class="text-sub" style="margin-bottom:12px;">
+            Selecciona automáticamente rutas del top-10 de sugerencias y ejecuta rebalanceos periódicos
+            con reintentos escalando el fee. <strong style="color:var(--yellow);">⚠ Experimental</strong> — monitorea el log.
+          </p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Monto por ciclo (sats)</label>
+              <input type="number" id="bot-amt" value="1000" style="width:110px;"/>
+            </div>
+            <div class="form-group">
+              <label>Fee base (sats)</label>
+              <input type="number" id="bot-fee" value="1" style="width:80px;"/>
+            </div>
+            <div class="form-group">
+              <label>Intervalo (min)</label>
+              <input type="number" id="bot-interval" value="5" min="1" style="width:70px;"/>
+            </div>
+          </div>
+
+          <div class="action-bar" style="margin-top:10px;">
+            <label class="toggle-switch" title="Activar / Desactivar Piloto Automático">
+              <input type="checkbox" id="bot-toggle"/>
+              <span class="toggle-slider"></span>
+            </label>
+            <span id="bot-status" class="text-sub">Estado: <strong id="bot-status-val" style="color:var(--subtext);">INACTIVO</strong></span>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-bot-log" style="margin-left:auto;">Limpiar Log</button>
+          </div>
+
+          <div class="log-box" id="log-bot" style="height:180px;margin-top:10px;">El piloto automático mostrará su actividad aquí.</div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ TAB: APERTURA CANALES -->
+      <section class="tab-pane" id="tab-open">
+        <div class="section-title">🔌 Apertura de Canales</div>
+
+        <!-- Balance rápido -->
+        <div class="flex" style="margin-bottom:12px;">
+          <span class="text-sub">Balance On-chain:</span>
+          <span id="open-wallet-bal" class="text-accent bold">consultando...</span>
+          <button class="btn btn-ghost btn-sm" id="btn-refresh-open-wallet">↻</button>
+        </div>
+
+        <!-- URI externa -->
+        <div class="card">
+          <div class="card-header">Conectar Nodo Externo (1ml.com / amboss.space)</div>
+          <div class="form-row">
+            <input type="text" id="ext-uri" placeholder="pubkey@ip:port" class="input-wide" style="flex:1;"/>
+            <button class="btn btn-ghost btn-sm" id="btn-connect-only">Solo Conectar</button>
+            <button class="btn" id="btn-connect-open">Conectar + Abrir Canal</button>
+          </div>
+          <div class="text-sub mt-sm">Ejemplo: 02ebe2b...@54.244.234.100:19996 | El monto se toma del formulario inferior.</div>
+        </div>
+
+        <!-- Candidatos del grafo -->
+        <div class="card">
+          <div class="card-header">Candidatos del Grafo Local (sin canal)</div>
+          <div class="form-row">
+            <div class="form-group flex">
+              <label>Mín. Canales:</label>
+              <input type="number" id="cand-min-ch" value="2" style="width:65px;"/>
+            </div>
+            <div class="form-group flex">
+              <label>Máx. Días Gossip:</label>
+              <input type="number" id="cand-max-days" value="30" style="width:65px;"/>
+            </div>
+            <button class="btn" id="btn-scan-cands">Escanear Candidatos</button>
+          </div>
+          <div class="table-wrap">
+            <table id="cand-table">
+              <thead><tr>
+                <th>Alias</th><th>Pubkey</th><th>Nº Canales</th><th>Cap. Total (sats)</th><th>Último Gossip</th>
+              </tr></thead>
+              <tbody id="cand-tbody"></tbody>
+            </table>
+          </div>
+          <div class="text-sub mt-sm">* Haz clic en una fila para cargar la Pubkey abajo.</div>
+        </div>
+
+        <!-- Formulario apertura -->
+        <div class="card">
+          <div class="card-header">Parámetros de Apertura</div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label>Pubkey Destino</label>
+              <input type="text" id="open-pubkey" placeholder="02abe..." style="width:100%;"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Local Amt (sats)</label>
+              <input type="number" id="open-amt" value="50000" style="width:130px;"/>
+            </div>
+            <div class="form-group">
+              <label>Push Amt (sats a regalar)</label>
+              <input type="number" id="open-push" value="0" style="width:130px;"/>
+            </div>
+            <span id="push-warn" class="text-red" style="font-size:12px;display:none;">[!] Estos sats se regalarán</span>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-success" id="btn-open-channel">ABRIR CANAL</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-open-log">Limpiar Log</button>
+          </div>
+          <div class="log-box" id="log-open">Selecciona un candidato o ingresa la Pubkey manualmente.</div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ TAB: CIERRE CANALES -->
+      <section class="tab-pane" id="tab-close">
+        <div class="section-title">❌ Cierre de Canales</div>
+
+        <div class="action-bar">
+          <button class="btn" id="btn-refresh-close">↻ Refrescar Canales</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="close-table">
+            <thead><tr>
+              <th>Alias</th><th>Pubkey</th><th>Estado</th>
+              <th>Local (sats)</th><th>Remote (sats)</th><th>Channel Point</th>
+            </tr></thead>
+            <tbody id="close-tbody"></tbody>
+          </table>
+        </div>
+        <div class="text-sub mt-sm">* Haz clic en una fila para cargar el Channel Point abajo.</div>
+
+        <div class="card mt-md">
+          <div class="card-header">Formulario de Cierre</div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label>Channel Point (TXID:IDX)</label>
+              <input type="text" id="close-chanpoint" placeholder="txid:0" style="width:100%;"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="close-force"/>
+              <span>Force Close (Unilateral) — bloqueará fondos temporalmente</span>
+            </label>
+          </div>
+          <div class="action-bar">
+            <button class="btn btn-danger" id="btn-close-channel">CERRAR CANAL</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-close-log">Limpiar Log</button>
+          </div>
+          <div class="log-box" id="log-close">Selecciona un canal de la tabla superior.</div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ TAB: AVENTURA -->
+      <section class="tab-pane" id="tab-aventura">
+        <div class="section-title">⚔️ Aventura del Nodo</div>
+
+        <div class="action-bar" style="margin-bottom:4px;">
+          <button class="btn btn-ghost btn-sm" id="btn-refresh-game">↻ Actualizar Estado</button>
+          <span id="game-last-update" class="text-sub" style="font-size:11px;"></span>
+        </div>
+
+        <!-- ── PERFIL DEL OPERADOR ─────────────────────────────── -->
+        <div class="game-profile-card" id="game-profile-card">
+
+          <!-- Avatar + Rango -->
+          <div class="game-avatar-col">
+            <div class="game-avatar" id="game-avatar">⚡</div>
+            <div class="game-rank-badge" id="game-rank-badge">Aprendiz de Satoshi</div>
+            <div class="game-rank-level text-sub" id="game-rank-level">Nivel 0</div>
+          </div>
+
+          <!-- Barras XP y HP -->
+          <div class="game-bars-col">
+
+            <!-- XP -->
+            <div class="game-bar-row">
+              <div class="game-bar-label">
+                <span class="game-bar-icon">✨</span>
+                <span>Experiencia (XP)</span>
+                <span class="game-bar-value" id="game-xp-text">0 XP</span>
+              </div>
+              <div class="game-bar-track">
+                <div class="game-bar-fill game-bar-xp" id="game-xp-bar" style="width:0%"></div>
+              </div>
+              <div class="game-bar-hint text-sub" id="game-xp-hint"></div>
+            </div>
+
+            <!-- HP -->
+            <div class="game-bar-row">
+              <div class="game-bar-label">
+                <span class="game-bar-icon">❤️</span>
+                <span>Salud del Nodo (HP)</span>
+                <span class="game-bar-value" id="game-hp-text">100%</span>
+              </div>
+              <div class="game-bar-track">
+                <div class="game-bar-fill game-bar-hp" id="game-hp-bar" style="width:100%"></div>
+              </div>
+              <div class="game-bar-hint text-sub" id="game-hp-hint"></div>
+            </div>
+
+            <!-- Stats rápidas -->
+            <div class="game-quick-stats" id="game-quick-stats">
+              <div class="game-stat-pill">
+                <span class="game-stat-icon">🏆</span>
+                <span id="game-stat-achievements">0 / 0</span>
+                <span class="text-sub">Logros</span>
+              </div>
+              <div class="game-stat-pill">
+                <span class="game-stat-icon">🎯</span>
+                <span id="game-stat-quests">0</span>
+                <span class="text-sub">Misiones activas</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── MISIONES ACTIVAS ────────────────────────────────── -->
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header">🎯 Misiones Activas</div>
+          <div id="game-quests-container" class="game-quests-grid">
+            <div class="text-sub" style="padding:16px;">Cargando misiones...</div>
+          </div>
+        </div>
+
+        <!-- ── VITRINA DE TROFEOS ──────────────────────────────── -->
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header">🏆 Vitrina de Trofeos</div>
+          <div id="game-achievements-container" class="game-achievements-grid">
+            <div class="text-sub" style="padding:16px;">Cargando trofeos...</div>
+          </div>
+        </div>
+
+      </section><!-- /tab-aventura -->
+
+    </main><!-- #content -->
+  </div><!-- #body -->
+</div><!-- #app -->
+
+<div id="toast-container"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
