@@ -430,6 +430,7 @@ def evaluate_game_state(
         already_unlocked      = already_unlocked,
         had_zombies_before    = had_zombies,
         net_profit_total_msat = net_profit_total,
+        towers_count          = snap.get("towers_count", 0),
     )
 
     # ── 4. Persistir logros nuevos en la DB ───────────────────────────────────

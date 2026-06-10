@@ -552,6 +552,14 @@ def collect():
     # Revertir para que daily[0] = día más antiguo y daily[-1] = más reciente
     daily.reverse()
 
+    towers_count = 0
+    try:
+        towers_info = run_lncli("wtclient", "towers", timeout=10) or {}
+        towers_list = towers_info.get("towers", [])
+        towers_count = len(towers_list)
+    except Exception:
+        pass
+
     snap_dict = {
         # Identificadores del nodo
         "fwd_count_cum":     fwd_count_cum,
@@ -561,6 +569,7 @@ def collect():
         "liquidity_ratio":   liq_ratio,
         "wallet_confirmed":  wallet_conf,
         "capacity_total":    cap_total,
+        "towers_count":      towers_count,
     }
 
     # Convertir chan_rows de lista de dicts a formato que el motor espera

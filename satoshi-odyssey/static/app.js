@@ -128,6 +128,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     // Al entrar en rebalanceo, sincronizar el estado del autopiloto con el servidor
     // (resuelve el desfase visual tras recargar la página con el bot activo)
     if (btn.dataset.tab === 'rebalance') syncBotStatus();
+    // Al entrar en watchtower, cargar su estado
+    if (btn.dataset.tab === 'watchtower') loadWatchtowerStatus();
+    // Al entrar en aventura, cargar su estado
+    if (btn.dataset.tab === 'aventura') loadGameStatus();
   });
 });
 
@@ -965,12 +969,213 @@ async function loadGameStatus() {
 // Botón de actualizar en la pestaña Aventura
 $('btn-refresh-game').addEventListener('click', loadGameStatus);
 
-// Cargar el panel cuando el usuario hace clic en la pestaña Aventura
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (btn.dataset.tab === 'aventura') loadGameStatus();
-  });
-});
-
 // Auto-refresh de gamificación cada 5 minutos (mismo ciclo que métricas)
 setInterval(loadGameStatus, 300_000);
+
+
+// ══════════════════════════════════════════════════════════
+// MÓDULO DE WATCHTOWER (Torres de Vigilancia)
+// ══════════════════════════════════════════════════════════
+
+/**
+ * Carga el estado consolidado de watchtowers y actualiza la UI.
+ */
+async function loadWatchtowerStatus() {
+  const data = await apiFetch('/api/watchtower/status');
+  if (!data) return;
+
+  // Manejo de error si los módulos de LND no están configurados/activos
+  // data.wtclient_active es false solo cuando el cliente reportó error de configuración
+  // data.error solo se propaga cuando el cliente NO está activo
+  if (data.error && !data.wtclient_active) {
+    $('wt-config-guide').style.display = 'block';
+    $('wt-active-content').style.display = 'none';
+    return;
+  }
+
+  $('wt-config-guide').style.display = 'none';
+  $('wt-active-content').style.display = 'block';
+
+  // 1. Cliente: Estado & Métricas
+  // active viene directamente del backend (client.get("active"))
+  const isClientActive = !!data.wtclient_active;
+
+  $('wt-c-status').innerHTML = isClientActive 
+    ? `<span style="color:var(--green)">⚡ Activo</span>` 
+    : `<span style="color:var(--sub)">Inactivo</span>`;
+
+  const numTowers = (data.towers || []).length;
+  $('wt-c-count').textContent = numTowers;
+
+  // Calcular backups y sesiones totales
+  let totalBackups = 0;
+  let activeSessions = 0;
+  let exhaustedSessions = 0;
+
+  (data.towers || []).forEach(t => {
+    (t.sessions || []).forEach(s => {
+      totalBackups += (s.num_backups || 0);
+      if (s.exhausted) {
+        exhaustedSessions++;
+      } else {
+        activeSessions++;
+      }
+    });
+  });
+
+  $('wt-c-backups').textContent = totalBackups;
+  $('wt-c-sessions').textContent = `${activeSessions} / ${exhaustedSessions}`;
+
+  // 2. Servidor: Estado & URI
+  // active=true y pubkey presente indican que el servidor está habilitado
+  const serverInfo = data.server_info || {};
+  const isServerActive = serverInfo.active === true && !!serverInfo.pubkey;
+
+  if (isServerActive) {
+    $('wt-s-status').innerHTML = `<span style="color:var(--green)">📡 Escuchando</span>`;
+    $('wt-s-details').style.display = 'block';
+    $('wt-s-inactive-msg').style.display = 'none';
+    $('wt-s-listen').textContent = serverInfo.listening_addresses && serverInfo.listening_addresses.length
+      ? serverInfo.listening_addresses.join(', ') : '—';
+
+    // Preferir las URIs completas si están disponibles, o construir una
+    const uris = serverInfo.uris || [];
+    const uriDisplay = uris.length ? uris.join('\n') : `${serverInfo.pubkey}@${serverInfo.listening_addresses && serverInfo.listening_addresses[0] ? serverInfo.listening_addresses[0] : 'localhost:9911'}`;
+    $('wt-s-uri').value = uriDisplay;
+  } else {
+    $('wt-s-status').innerHTML = `<span style="color:var(--sub)">Inactivo</span>`;
+    $('wt-s-details').style.display = 'none';
+    $('wt-s-inactive-msg').style.display = 'block';
+  }
+
+  // 3. Tabla de Torres Conectadas
+  const tbody = $('wt-towers-tbody');
+  tbody.innerHTML = '';
+
+  if (data.towers && data.towers.length > 0) {
+    data.towers.forEach(t => {
+      const pubkey = t.pubkey || '—';
+      const addresses = t.addresses ? t.addresses.join(', ') : '—';
+      const numSessions = t.sessions ? t.sessions.length : 0;
+      
+      // Sumar backups de esta torre
+      let okBackups = 0;
+      let pendingBackups = 0;
+      (t.sessions || []).forEach(s => {
+        okBackups += (s.num_backups || 0);
+        pendingBackups += (s.num_pending_backups || 0);
+      });
+
+      const backupsStr = `${okBackups} OK / ${pendingBackups} Pend`;
+      const sweepFeeLimit = t.sweep_fee_limit_sat_per_vbyte ? `${t.sweep_fee_limit_sat_per_vbyte} sat/vB` : '—';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono" style="font-size:11px;" title="${pubkey}">${pubkey.substring(0, 16)}...${pubkey.substring(pubkey.length - 8)}</td>
+        <td style="font-size:12px;">${addresses}</td>
+        <td>${numSessions}</td>
+        <td>${backupsStr}</td>
+        <td>${sweepFeeLimit}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="removeTower('${pubkey}')">❌ Eliminar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } else {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-sub" style="text-align:center; padding:16px;">No hay torres de vigilancia configuradas.</td>
+      </tr>
+    `;
+  }
+
+  // 4. Estadísticas del Cliente Globales
+  const stats = data.stats || {};
+  $('wt-stat-active').textContent = stats.num_tasks_active || 0;
+  $('wt-stat-pending').textContent = stats.num_tasks_pending || 0;
+  
+  const policy = data.policy || {};
+  $('wt-stat-policy-max').textContent = policy.max_updates || 0;
+  $('wt-stat-policy-fee').textContent = policy.sweep_fee_rate_sat_per_vbyte ? `${policy.sweep_fee_rate_sat_per_vbyte} sat/vB` : '0 sat/vB';
+
+  // Twemoji parse
+  twemojiParse($('tab-watchtower'));
+}
+
+/**
+ * Registra una nueva torre de vigilancia.
+ */
+async function addTower() {
+  const uriInput = $('wt-uri-input');
+  const uri = uriInput.value.trim();
+  if (!uri) return;
+
+  const btn = $('wt-btn-add');
+  btn.disabled = true;
+  btn.textContent = 'Conectando...';
+
+  try {
+    const res = await apiFetch('/api/watchtower/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uri }),
+    });
+    if (res && res.ok) {
+      toast('🛡️ Torre agregada con éxito', 'ok');
+      uriInput.value = '';
+      await loadWatchtowerStatus();
+      // Recargar gamificación por si desbloqueó el logro escudo_protector
+      await loadGameStatus();
+    } else {
+      toast('❌ Error al agregar torre: ' + (res ? res.error : 'Respuesta vacía'), 'err');
+    }
+  } catch (err) {
+    toast('❌ Error al conectar con el servidor', 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🛡️ Conectar';
+  }
+}
+
+/**
+ * Elimina una torre de vigilancia.
+ */
+async function removeTower(pubkey) {
+  if (!confirm(`¿Estás seguro de que deseas desconectar la torre ${pubkey}?`)) {
+    return;
+  }
+
+  try {
+    const res = await apiFetch('/api/watchtower/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pubkey }),
+    });
+    if (res && res.ok) {
+      toast('🗑️ Torre eliminada', 'ok');
+      await loadWatchtowerStatus();
+      await loadGameStatus();
+    } else {
+      toast('❌ Error al eliminar torre: ' + (res ? res.error : 'Respuesta vacía'), 'err');
+    }
+  } catch (err) {
+    toast('❌ Error al conectar con el servidor', 'err');
+  }
+}
+
+// Exportar funciones globales para callbacks inline de HTML
+window.removeTower = removeTower;
+window.loadWatchtowerStatus = loadWatchtowerStatus;
+
+// Configurar Event Listeners para Watchtower
+$('wt-add-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  addTower();
+});
+
+$('wt-btn-copy-uri').addEventListener('click', () => {
+  copyTextToClipboard($('wt-s-uri').value)
+    .then(() => toast('📋 URI copiada al portapapeles', 'ok'))
+    .catch(() => toast('❌ No se pudo copiar', 'err'));
+});

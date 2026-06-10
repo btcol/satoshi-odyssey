@@ -49,6 +49,9 @@
       <button class="tab-btn" data-tab="close">
         <span class="icon">❌</span> Cierre Canales
       </button>
+      <button class="tab-btn" data-tab="watchtower">
+        <span class="icon">🛡️</span> Watchtower
+      </button>
       <button class="tab-btn tab-btn-game" data-tab="aventura">
         <span class="icon">⚔️</span> Aventura
       </button>
@@ -520,6 +523,132 @@
         </div>
 
       </section><!-- /tab-aventura -->
+
+      <!-- ════════════════════════════════════════════ TAB: WATCHTOWER -->
+      <section class="tab-pane" id="tab-watchtower">
+        <div class="section-title">🛡️ Torre de Vigilancia (Watchtower)</div>
+
+        <!-- Mensaje / Guía de configuración si está inactivo -->
+        <div id="wt-config-guide" class="card" style="display:none; border-color:var(--yellow); background:rgba(255,204,0,0.05);">
+          <div class="card-header" style="color:var(--yellow); border-bottom-color:rgba(255,204,0,0.2);">⚠️ Módulo Inactivo en lnd.conf</div>
+          <p style="margin-bottom:12px; font-size:13px; line-height:1.6;">
+            Para que la funcionalidad de Watchtower se active en tu nodo, debes agregar los siguientes parámetros en tu archivo de configuración <strong>lnd.conf</strong> y luego reiniciar tu nodo LND:
+          </p>
+          <pre style="background:#030308; padding:12px; border-radius:var(--radius); font-family:var(--mono); font-size:12px; color:var(--yellow); border:1px solid rgba(255,204,0,0.2); margin-bottom:12px; overflow-x:auto;">
+[wtclient]
+wtclient.active=true
+
+[watchtower]
+watchtower.active=true
+watchtower.listen=0.0.0.0:9911</pre>
+          <p style="font-size:12px; color:var(--subtext);">
+            * Nota: <code style="font-family:var(--mono); color:var(--accent);">wtclient.active</code> activa el cliente para respaldar tus canales en torres externas. <code style="font-family:var(--mono); color:var(--accent);">watchtower.active</code> activa tu propio servidor de watchtower para prestar servicios a otros nodos.
+          </p>
+        </div>
+
+        <div id="wt-active-content">
+          <!-- Grilla de métricas principales -->
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <div class="metric-label">Cliente de Vigilancia</div>
+              <div class="metric-val" id="wt-c-status">—</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Torres Conectadas</div>
+              <div class="metric-val" id="wt-c-count">—</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Backups Enviados</div>
+              <div class="metric-val" id="wt-c-backups">—</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Sesiones (Activas/Agotadas)</div>
+              <div class="metric-val" id="wt-c-sessions">—</div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-bottom:14px;" class="form-row">
+            <!-- Formulario de agregar torre -->
+            <div class="card" style="margin-bottom:0; flex: 2;">
+              <div class="card-header">➕ Registrar Nueva Torre de Vigilancia (wtclient)</div>
+              <form id="wt-add-form" onsubmit="event.preventDefault();">
+                <div class="form-row">
+                  <div class="form-group" style="flex:1;">
+                    <label for="wt-uri-input">URI de la Torre (pubkey@host:port):</label>
+                    <input type="text" id="wt-uri-input" placeholder="02abcd...12@12.34.56.78:9911" class="input-wide" required style="width: 100%;"/>
+                  </div>
+                  <button type="submit" class="btn" id="wt-btn-add" style="margin-top:19px;">🛡️ Conectar</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Server Info -->
+            <div class="card" style="margin-bottom:0; flex: 1;">
+              <div class="card-header">📡 Tu Servidor Watchtower</div>
+              <div style="font-size:12px; line-height:1.6;">
+                <p><strong>Estado:</strong> <span id="wt-s-status">—</span></p>
+                <div id="wt-s-details" style="display:none; margin-top:8px;">
+                  <p><strong>Escucha:</strong> <span id="wt-s-listen" class="mono" style="word-break:break-all;">—</span></p>
+                  <p style="margin-top:4px;"><strong>URI Pública:</strong></p>
+                  <textarea id="wt-s-uri" readonly style="width:100%; height:50px; font-family:var(--mono); font-size:11px; margin-top:4px; resize:none;"></textarea>
+                  <button class="btn btn-ghost btn-sm" id="wt-btn-copy-uri" style="margin-top:6px; width:100%;">📋 Copiar URI</button>
+                </div>
+                <div id="wt-s-inactive-msg" style="color:var(--subtext); margin-top:6px;">
+                  Servidor inactivo. Habilítalo en lnd.conf para dar servicio a otros.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabla de torres conectadas -->
+          <div class="card">
+            <div class="card-header">📋 Torres de Vigilancia Conectadas</div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pubkey de la Torre</th>
+                    <th>Direcciones</th>
+                    <th>Sesiones</th>
+                    <th>Backups (OK/Pendientes/Fallo)</th>
+                    <th>Sweep Fee Limit</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="wt-towers-tbody">
+                  <tr>
+                    <td colspan="6" class="text-sub" style="text-align:center; padding:16px;">No hay torres conectadas o cargando...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Sección de logs en tiempo real o detalles adicionales -->
+          <div class="card">
+            <div class="card-header">📊 Estadísticas Globales del Cliente</div>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px;" class="metrics-grid">
+              <div class="metric-box">
+                <div class="metric-label">Tareas Activas</div>
+                <div class="metric-val" id="wt-stat-active">0</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Tareas Pendientes</div>
+                <div class="metric-val" id="wt-stat-pending">0</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Max actualizaciones por sesión</div>
+                <div class="metric-val" id="wt-stat-policy-max">0</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Sweep fee rate</div>
+                <div class="metric-val" id="wt-stat-policy-fee">0 sat/vB</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /wt-active-content -->
+      </section><!-- /tab-watchtower -->
 
     </main><!-- #content -->
   </div><!-- #body -->

@@ -369,6 +369,18 @@ def test_retorno_es_lista_vacia_cuando_todos_ya_desbloqueados():
     assert nuevos == []
 
 
+def test_escudo_protector_con_towers():
+    """Escudo Protector: se desbloquea al conectar al menos una torre."""
+    nuevos = evaluate_achievements(_snap_vacio(), [], [], set(), towers_count=1)
+    assert "escudo_protector" in nuevos
+
+
+def test_escudo_protector_sin_towers():
+    """Escudo Protector: no se desbloquea con 0 torres."""
+    nuevos = evaluate_achievements(_snap_vacio(), [], [], set(), towers_count=0)
+    assert "escudo_protector" not in nuevos
+
+
 # =============================================================================
 # RUNNER MANUAL (sin pytest)
 # =============================================================================

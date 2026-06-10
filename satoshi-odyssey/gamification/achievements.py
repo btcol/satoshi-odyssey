@@ -113,6 +113,13 @@ ALL_ACHIEVEMENTS: list[dict] = [
         "emoji":       "🌙",
         "hint":        "Asegúrate de que tu nodo esté siempre encendido y sincronizado a la cadena.",
     },
+    {
+        "id":          "escudo_protector",
+        "name":        "Escudo Protector",
+        "description": "Conectaste una torre de vigilancia (watchtower) activa para salvaguardar tu nodo.",
+        "emoji":       "🛡️",
+        "hint":        "Busca una torre de vigilancia pública o privada y conéctala a tu nodo.",
+    },
 ]
 
 # Índice rápido por ID para lookups O(1) desde el motor del juego
@@ -159,6 +166,7 @@ def evaluate_achievements(
     already_unlocked: set,
     had_zombies_before: bool = False,
     net_profit_total_msat: int | None = None,
+    towers_count: int = 0,
 ) -> list[str]:
     """
     Evalúa el estado actual del nodo y devuelve los IDs de los logros
@@ -279,5 +287,9 @@ def evaluate_achievements(
         # Sin 7 días completos de historial, el logro no puede verificarse.
         insomne_ok = False
     _check("insomne", insomne_ok)
+
+    # ── Logro: Escudo Protector ──────────────────────────────────────────────
+    # Condición: al menos una watchtower conectada.
+    _check("escudo_protector", towers_count >= 1)
 
     return to_unlock

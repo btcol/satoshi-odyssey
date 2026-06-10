@@ -2167,3 +2167,114 @@ def generate_cockpit_html(csv_path: Path = None, cockpit_path: Path = None,
         log_cb(f"[OK] Cockpit guardado: {cockpit_path.name}")
     return True
 
+
+# =============================================================================
+# WATCHTOWER (TORRE DE VIGILANCIA) CLIENTE & SERVIDOR
+# =============================================================================
+
+def get_wtclient_info() -> dict:
+    """
+    Retorna información consolidada del cliente de Watchtower (wtclient):
+    - active: boolean (indica si está habilitado)
+    - stats: dict con estadísticas del cliente (o vacío si inactivo)
+    - policy: dict con políticas de sesión del cliente (o vacío si inactivo)
+    - towers: list con las torres registradas (o vacío si inactivo)
+    - error: str con mensaje de error si el servicio no está activo
+    """
+    result = {
+        "active": False,
+        "stats": {},
+        "policy": {},
+        "towers": [],
+        "error": None
+    }
+    
+    # Intentar obtener las estadísticas del wtclient
+    try:
+        stats_data = run_lncli("wtclient", "stats", timeout=10)
+        result["stats"] = stats_data
+        result["active"] = True
+    except Exception as e:
+        err_msg = str(e)
+        if "No help topic for" in err_msg or "unknown command" in err_msg:
+            result["error"] = "Módulo wtclient no compilado en LND o versión no compatible."
+            return result
+        elif "wtclient is inactive" in err_msg or "watchtower client is inactive" in err_msg or "wtclient not active" in err_msg or "client not active" in err_msg:
+            result["error"] = "El cliente de Watchtower no está activo en lnd.conf. Agrega 'wtclient.active=1' bajo la sección [wtclient] y reinicia LND."
+            return result
+        else:
+            result["error"] = f"wtclient inactivo o error al conectar: {err_msg}"
+            return result
+            
+    # Intentar obtener la política del wtclient
+    try:
+        policy_data = run_lncli("wtclient", "policy", timeout=10)
+        result["policy"] = policy_data
+    except Exception:
+        pass
+
+    # Intentar obtener la lista de torres
+    try:
+        towers_data = run_lncli("wtclient", "towers", timeout=10)
+        result["towers"] = towers_data.get("towers", [])
+    except Exception:
+        pass
+        
+    return result
+
+
+def get_wtserver_info() -> dict:
+    """
+    Retorna información del servidor de Watchtower (tower info) si está habilitado:
+    - active: boolean
+    - pubkey: str
+    - listener_addresses: list
+    - uris: list
+    - error: str (o None)
+    """
+    result = {
+        "active": False,
+        "pubkey": "",
+        "listener_addresses": [],
+        "uris": [],
+        "error": None
+    }
+    try:
+        info = run_lncli("tower", "info", timeout=10)
+        result["active"] = True
+        result["pubkey"] = info.get("pubkey", "")
+        result["listener_addresses"] = info.get("listener_addresses", [])
+        result["uris"] = info.get("uris", [])
+    except Exception as e:
+        err_msg = str(e)
+        if "No help topic for" in err_msg or "unknown command" in err_msg:
+            result["error"] = "Módulo tower (servidor) no compilado en LND."
+        elif "watchtower is inactive" in err_msg or "watchtower not active" in err_msg or "server not active" in err_msg:
+            result["error"] = "El servidor de Watchtower no está activo en lnd.conf. Agrega 'watchtower.active=1' bajo la sección [watchtower] y reinicia LND."
+        else:
+            result["error"] = f"Servidor de Watchtower inactivo: {err_msg}"
+    return result
+
+
+def add_wtclient_tower(uri: str) -> dict:
+    """
+    Agrega una nueva torre de vigilancia wtclient add <pubkey>@<host>:<port>.
+    """
+    try:
+        run_lncli("wtclient", "add", uri, timeout=15)
+        return {"ok": True, "msg": f"Torre {uri} agregada con éxito."}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def remove_wtclient_tower(pubkey: str) -> dict:
+    """
+    Remueve una torre de vigilancia de la lista wtclient remove <pubkey>.
+    """
+    try:
+        run_lncli("wtclient", "remove", pubkey, timeout=15)
+        return {"ok": True, "msg": f"Torre con pubkey {pubkey} removida con éxito."}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+

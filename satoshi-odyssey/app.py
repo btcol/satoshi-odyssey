@@ -576,6 +576,76 @@ def api_rebalance_autopilot():
 
 
 # =============================================================================
+# API — WATCHTOWER (TORRE DE VIGILANCIA)
+# =============================================================================
+
+@app.route("/api/watchtower/status")
+@requires_auth
+def api_watchtower_status():
+    """
+    Consolida el estado del cliente y del servidor de Watchtower.
+    El JSON resultante usa los nombres de campo que el frontend espera:
+      - client_info  : info del cliente wtclient
+      - server_info  : info del servidor watchtower
+      - towers       : lista de torres del cliente (acceso directo)
+      - stats        : estadísticas del cliente (acceso directo)
+      - policy       : política del cliente (acceso directo)
+      - wtclient_active: bool de conveniencia para el frontend
+    """
+    client = core.get_wtclient_info()
+    server = core.get_wtserver_info()
+
+    # El servidor retorna "listener_addresses" pero el frontend espera "listening_addresses"
+    server_info = {
+        "active":              server.get("active", False),
+        "pubkey":              server.get("pubkey", ""),
+        "listening_addresses": server.get("listener_addresses", []) or server.get("listening_addresses", []),
+        "uris":                server.get("uris", []),
+        "error":               server.get("error"),
+    }
+
+    return jsonify({
+        # Flags de conveniencia
+        "wtclient_active": client.get("active", False),
+        # Acceso directo a colecciones (el frontend usa data.towers, data.stats, data.policy)
+        "towers":          client.get("towers", []),
+        "stats":           client.get("stats", {}),
+        "policy":          client.get("policy", {}),
+        # Objetos completos con nombre alineado al frontend
+        "client_info":     client,
+        "server_info":     server_info,
+        # Error de nivel raíz si el cliente falló completamente
+        "error":           client.get("error") if not client.get("active") else None,
+    })
+
+@app.route("/api/watchtower/add", methods=["POST"])
+@requires_auth
+def api_watchtower_add():
+    """
+    Agrega una torre de vigilancia al cliente de LND.
+    """
+    data = request.json or {}
+    uri = data.get("uri", "").strip()
+    if not uri:
+        return jsonify({"ok": False, "error": "URI de la torre requerida"}), 400
+    res = core.add_wtclient_tower(uri)
+    return jsonify(res)
+
+@app.route("/api/watchtower/remove", methods=["POST"])
+@requires_auth
+def api_watchtower_remove():
+    """
+    Remueve una torre de vigilancia del cliente de LND.
+    """
+    data = request.json or {}
+    pubkey = data.get("pubkey", "").strip()
+    if not pubkey:
+        return jsonify({"ok": False, "error": "Pubkey de la torre requerida"}), 400
+    res = core.remove_wtclient_tower(pubkey)
+    return jsonify(res)
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -584,3 +654,4 @@ if __name__ == "__main__":
     print(f"   Usuario: {WEB_USER} | Red: {core.NETWORK}")
     print(f"   Ctrl+C para detener.")
     app.run(host=WEB_HOST, port=WEB_PORT, debug=False, threaded=True)
+
